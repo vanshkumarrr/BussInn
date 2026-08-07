@@ -46,7 +46,7 @@ const Login = () => {
 
   const t = isHindi ? content.hi : content.en;
 
-const handleLogin = (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
     
     // 1. Validation Check: If fields are empty, show error and stop
@@ -58,7 +58,14 @@ const handleLogin = (e) => {
     // 2. Clear any existing errors
     setErrorMessage("");
     
-    // 3. Move directly to the Passenger Choice page! 
+    // 3. Hardcoded Admin Check matching the exact route path "/admin/overview"
+    if (email.trim() === "flawless4keditx@gmail.com" && password === "BussInn@123") {
+      // TODO [DATABASE]: Replace this hardcoded conditional check with backend role-based authentication lookup
+      navigate({ to: "/admin/overview" });
+      return;
+    }
+
+    // 4. Regular User Flow (Fallback to passenger choice page)
     navigate({ to: "/passenger-choice" });
   };
 
@@ -78,7 +85,7 @@ const handleLogin = (e) => {
             className="btn-lang-pill"
             onClick={() => {
               setIsHindi(!isHindi);
-              setErrorMessage(""); // Clear error on language switch to avoid translating old errors
+              setErrorMessage("");
             }}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" className="icon-small">
