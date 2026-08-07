@@ -1,0 +1,307 @@
+:root {
+  --primary: #004cca; 
+  --primary-fixed: #dbe1ff;
+  --on-primary: #ffffff;
+  
+  --tertiary: #005f75; 
+  --tertiary-container: #007995;
+  --on-tertiary: #ffffff;
+  
+  --surface: #f9f9fd;
+  --surface-container-low: #f3f3f7;
+  --surface-container-highest: #e2e2e6;
+  --surface-variant: #e2e2e6;
+  --on-surface: #1a1c1f;
+  --on-surface-variant: #424656;
+}
+
+/* Background container */
+.mobile-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  background-color: #f4f6f9;
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Subtle background pattern */
+.dotted-background {
+  background-image: radial-gradient(var(--surface-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Main App Wrapper */
+.app-content {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh; /* Changed from height: 100vh to prevent vertical squishing */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  position: relative;
+  overflow-x: hidden;
+  box-shadow: 0 0 40px rgba(0,0,0,0.05); 
+}
+
+/* Header styling */
+.role-header {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between; /* This forces elements to opposite ends */
+  align-items: center;
+  padding: 0 20px;
+  height: 64px;
+  background-color: rgba(249, 249, 253, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 50;
+  border-bottom: 1px solid rgba(226, 226, 230, 0.5);
+}
+
+.brand-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+}
+
+.bus-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.brand-name {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* Language Toggle Pill */
+.btn-lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--surface-container-highest);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-lang-pill:hover {
+  background-color: #d5d5db; 
+}
+
+.btn-lang-pill:active {
+  transform: scale(0.95);
+}
+
+.icon-small {
+  width: 16px;
+  height: 16px;
+  color: var(--primary); 
+}
+
+/* Main Content Layout */
+.role-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 20px 24px 20px;
+}
+
+.role-header-text {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.role-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+}
+
+.role-subtitle {
+  font-size: 15px;
+  color: var(--on-surface-variant);
+  margin: 0;
+}
+
+/* Cards Grid */
+.role-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+  flex: 1 0 auto; /* Ensures cards don't shrink uncomfortably */
+}
+
+/* Base Card Styling */
+.role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--surface-variant);
+  border-radius: 16px;
+  padding: 24px 20px;
+  text-decoration: none;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.role-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 76, 204, 0.08);
+  border-color: var(--primary-fixed);
+}
+
+.role-card:active {
+  transform: scale(0.98);
+}
+
+/* Left sliding border animation */
+.role-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.3s ease;
+  z-index: 2;
+}
+
+.passenger-card:hover::before {
+  background-color: var(--tertiary-container);
+  transform: scaleY(1);
+}
+
+.driver-card:hover::before {
+  background-color: var(--primary);
+  transform: scaleY(1);
+}
+
+/* Card Internal Elements */
+.role-card > * {
+  position: relative;
+  z-index: 10;
+}
+
+.card-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.card-icon-wrapper svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Passenger specific colors */
+.passenger-icon {
+  background-color: rgba(0, 95, 117, 0.1);
+  color: var(--tertiary);
+}
+.passenger-card:hover .passenger-icon {
+  background-color: var(--tertiary-container);
+  color: var(--on-tertiary);
+}
+
+/* Driver specific colors */
+.driver-icon {
+  background-color: rgba(0, 76, 202, 0.1);
+  color: var(--primary);
+}
+.driver-card:hover .driver-icon {
+  background-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0 0 8px 0;
+}
+
+.card-desc {
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+.card-action {
+  display: flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: auto; /* Pushes button text to bottom of card naturally */
+}
+
+.arrow-icon {
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  transition: transform 0.3s ease;
+}
+
+.passenger-action {
+  color: var(--tertiary);
+}
+
+.driver-action {
+  color: var(--primary);
+}
+
+.role-card:hover .arrow-icon {
+  transform: translateX(6px);
+}
+
+/* Footer link */
+.login-footer {
+  margin-top: auto;
+  text-align: center;
+  padding-top: 16px;
+}
+
+.login-footer p {
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  margin: 0;
+}
+
+.login-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}

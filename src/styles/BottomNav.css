@@ -1,0 +1,46 @@
+/* Bottom navigation — fixed pill bar, matches the reference screenshots. */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 4px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--bn-border, #e4e7ec);
+  border-radius: 999px;
+  box-shadow: 0 6px 24px rgba(16, 24, 40, 0.12);
+}
+
+.bottom-nav-item {
+  flex: 1;
+  padding: 10px 6px;
+  border-radius: 999px;
+  color: var(--bn-muted, #667085);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.bottom-nav-item[data-status="active"] {
+  background: var(--bn-blue, #1a56ff);
+  color: #fff;
+}
+
+.bottom-nav-item.icon-only {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.admin-nav {
+  max-width: 320px;
+}

@@ -1,0 +1,229 @@
+@import "./base.css";
+
+.bus-card {
+  background: #fff;
+  border: 1px solid var(--bn-border);
+  border-left: 5px solid #12b76a;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(16, 24, 40, 0.06);
+}
+
+.bus-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bus-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.bus-live {
+  font-size: 10px;
+  font-weight: 700;
+  color: #12b76a;
+  background: #ecfdf3;
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.bus-card-icon {
+  color: var(--bn-blue);
+}
+
+.bus-card-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.bus-card-operator {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  color: var(--bn-muted);
+}
+
+.bus-card-away {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--bn-muted);
+}
+
+.bus-card-rating-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 108px;
+}
+
+.bus-card-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #12b76a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.bus-card-reviews {
+  font-size: 11px;
+  color: var(--bn-muted);
+}
+
+.bus-confidence {
+  width: 100%;
+  text-align: right;
+}
+
+.bus-confidence-track {
+  height: 5px;
+  border-radius: 999px;
+  background: #eaecf0;
+  overflow: hidden;
+}
+
+.bus-confidence-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.bus-confidence-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--bn-muted);
+}
+
+.bus-card-timeline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--bn-border);
+  border-bottom: 1px solid var(--bn-border);
+}
+
+.bus-time-block {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: var(--bn-muted);
+}
+
+.bus-time-block strong {
+  font-size: 18px;
+  color: var(--bn-text);
+}
+
+.bus-time-block.right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.bus-eta {
+  color: #12b76a;
+  font-weight: 600;
+}
+
+.bus-track {
+  flex: 1;
+  text-align: center;
+}
+
+.bus-duration {
+  font-size: 11px;
+  color: var(--bn-muted);
+}
+
+.bus-line {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.bus-line .rail {
+  flex: 1;
+  height: 1px;
+  background: var(--bn-border);
+}
+
+.bus-line .dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--bn-muted);
+  border-radius: 50%;
+}
+
+.bus-track-icon {
+  color: var(--bn-muted);
+}
+
+.bus-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bus-price {
+  display: flex;
+  flex-direction: column;
+}
+
+.bus-price s {
+  font-size: 12px;
+  color: var(--bn-muted);
+}
+
+.bus-price strong {
+  font-size: 22px;
+}
+
+.bus-route-btn {
+  background: var(--bn-blue);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 12px 26px;
+  border-radius: 10px;
+}
+
+.bus-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bn-border);
+}
+
+.bus-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bn-blue);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.bus-link.danger {
+  color: #d92d20;
+}

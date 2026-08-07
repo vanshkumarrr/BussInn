@@ -1,0 +1,331 @@
+/* Color Variables based on the provided design config */
+:root {
+  --primary: #004cca;
+  --on-primary: #ffffff;
+  --primary-container: #0062ff;
+  
+  --surface: #f9f9fd;
+  --surface-container-lowest: #ffffff;
+  --surface-container-high: #e8e8ec;
+  --surface-container-highest: #e2e2e6;
+  
+  --on-surface: #1a1c1f;
+  --on-surface-variant: #424656;
+  
+  --outline: #737687;
+  --outline-variant: #c2c6d9;
+  
+  --error: #d32f2f;
+}
+
+/* Background container maintaining mobile boundaries */
+.mobile-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  background-color: #f4f6f9; 
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.app-content {
+  width: 100%;
+  max-width: 420px;
+  height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--surface); /* Solid background */
+  position: relative;
+  overflow: hidden; 
+  border-radius: 12px;
+}
+
+.login-layout {
+  padding: 0; 
+}
+
+/* Top Bar */
+.login-top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 16px;
+  z-index: 20;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--surface-container-highest);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-lang-pill:hover {
+  background-color: var(--surface-container-high);
+}
+
+.icon-small {
+  width: 16px;
+  height: 16px;
+}
+
+/* Main Content Wrapper */
+.login-content-wrapper {
+  width: 100%;
+  padding: 0 20px;
+  z-index: 10;
+  margin-top: 16px;
+}
+
+/* Brand Header */
+.login-brand-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.login-brand-title {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.icon-bus {
+  width: 36px;
+  height: 36px;
+}
+
+.login-brand-subtitle {
+  font-size: 16px;
+  color: var(--on-surface-variant);
+  margin: 4px 0 0 0;
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 76, 202, 0.08);
+}
+
+.login-card {
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+}
+
+.card-header-text {
+  text-align: center;
+}
+
+.card-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0 0 4px 0;
+}
+
+.card-subtitle {
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  margin: 0;
+}
+
+/* Form Styling */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Standard Inputs */
+.input-group {
+  position: relative;
+  width: 100%;
+}
+
+.custom-input {
+  width: 100%;
+  height: 52px;
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 15px;
+  color: var(--on-surface);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.custom-input::placeholder {
+  color: var(--outline);
+}
+
+.custom-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.custom-input.input-error {
+  border-color: var(--error);
+}
+
+.custom-input.input-error:focus {
+  box-shadow: 0 0 0 1px var(--error);
+}
+
+.password-group .custom-input {
+  padding-right: 48px; /* Room for the eye icon */
+}
+
+.btn-toggle-password {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--outline);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-eye {
+  width: 20px;
+  height: 20px;
+}
+
+/* Form Options Row */
+.form-options-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.custom-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--outline-variant);
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.checkbox-label {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+}
+
+.link-forgot {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.link-forgot:hover {
+  text-decoration: underline;
+}
+
+/* Error Message */
+.error-message-container {
+  text-align: center;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+
+.error-text {
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Action Buttons */
+.login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-primary {
+  width: 100%;
+  height: 48px;
+  background-color: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0, 98, 255, 0.2);
+  transition: transform 0.2s;
+  cursor: pointer;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  width: 100%;
+  height: 48px;
+  background-color: transparent;
+  color: var(--primary);
+  border: 1px solid rgba(0, 76, 202, 0.3);
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background-color 0.2s;
+  box-sizing: border-box;
+}
+
+.btn-secondary:hover {
+  background-color: rgba(0, 76, 202, 0.05);
+}
