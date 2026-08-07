@@ -1,20 +1,28 @@
-import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import "../../styles/DriverSetup.css";
 
 const DriverSetup = () => {
   const navigate = useNavigate();
   
+  // 1. Global Language State (Reads from localStorage, persists across app)
+  const [isHindi, setIsHindi] = useState(() => {
+    return localStorage.getItem("bussinn_lang") === "hi";
+  });
+
+  const toggleLanguage = () => {
+    const newLangState = !isHindi;
+    setIsHindi(newLangState);
+    localStorage.setItem("bussinn_lang", newLangState ? "hi" : "en");
+  };
+
   // Form State
   const [departurePoint, setDeparturePoint] = useState("");
   const [destinationPoint, setDestinationPoint] = useState("");
-  const [stops, setStops] = useState([""]); // Start with one empty stop
+  const [stops, setStops] = useState([""]); 
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [error, setError] = useState("");
-  
-  // Language State
-  const [isHindi, setIsHindi] = useState(false);
 
   // Translation Dictionary
   const content = {
@@ -38,9 +46,9 @@ const DriverSetup = () => {
     hi: {
       title: "ड्राइवर सेटअप",
       subtitle: "अपनी शिफ्ट शुरू करने से पहले अपने मार्ग का विवरण कॉन्फ़िगर करें।",
-      departureLabel: "प्रस्थान बिंदु (Departure Point)",
+      departureLabel: "प्रस्थान बिंदु",
       departurePlaceholder: "यहाँ से शुरू करें...",
-      destinationLabel: "गंतव्य बिंदु (Destination Point)",
+      destinationLabel: "गंतव्य बिंदु",
       destinationPlaceholder: "यहाँ समाप्त करें...",
       stopsLabel: "बस मार्ग / स्टॉप",
       stopsHint: "(उदाहरण: वे स्थान जहाँ बस आमतौर पर रुकती है)",
@@ -90,7 +98,18 @@ const DriverSetup = () => {
     
     setError("");
     
-    // TODO: POST data to backend here (Departure, Destination, Stops array, Times)
+    // Save configuration data for the dashboard
+    const driverRouteData = {
+      driverName: localStorage.getItem("bussinn_signup_name") || "Driver",
+      departure: departurePoint,
+      destination: destinationPoint,
+      stops: stops.filter(s => s.trim() !== ""),
+      startTime: startTime,
+      endTime: endTime,
+      routeCode: "RTE-" + Math.floor(10 + Math.random() * 90) + "A"
+    };
+
+    localStorage.setItem("driver_route_config", JSON.stringify(driverRouteData));
     
     navigate({ to: "/driver/dashboard" });
   };
@@ -108,10 +127,10 @@ const DriverSetup = () => {
             <span className="brand-name">BussInn</span>
           </div>
           
-          {/* Functional Translate Icon Button */}
+          {/* Global Language Toggle Button */}
           <button 
             className="btn-lang-pill" 
-            onClick={() => setIsHindi(!isHindi)}
+            onClick={toggleLanguage}
             title="Change Language"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" className="icon-small">

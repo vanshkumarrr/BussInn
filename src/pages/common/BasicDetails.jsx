@@ -25,26 +25,28 @@ const BasicDetails = () => {
     if (error) setError("");
   };
 
-  const handleSubmit = (e) => {
+ const handleSubmit = (e) => {
     e.preventDefault();
     
     // Validation
-    if (!form.name.trim() || form.phone.length < 10 || !form.city.trim()) {
-      setError("Please fill in all details correctly.");
+    if (!form.name.trim() || !form.email.trim() || !form.password) {
+      setError(t.emptyError);
       return;
     }
-    
-    if (!accepted) {
-      setError("Please accept the Terms & Conditions to continue.");
+    if (!isPasswordValid) {
+      setError(t.pwdError);
+      return;
+    }
+    if (!form.terms) {
+      setError(t.termsError);
       return;
     }
 
-    // Save phone to local storage for the Verify OTP page to read
-    localStorage.setItem("signupPhone", form.phone);
+    // Save the user's entered name globally so the dashboard & profile can access it!
+    localStorage.setItem("bussinn_signup_name", form.name);
 
-    // TODO: Save remaining user profile details to backend here
-
-    navigate({ to: "/verify-otp" });
+    // Navigate to Basic Details page on success
+    navigate({ to: "/basic-details" });
   };
 
   return (
