@@ -1,17 +1,353 @@
-@import "./base.css";
-
-/* DriverCoins page styles — intentionally empty. Design this page yourself. */
-.page {
+:root {
+  --primary: #0062ff;
+  --primary-dark: #004cca;
+  --on-primary: #ffffff;
+  --surface: #f4f6f9;
+  --surface-card: #ffffff;
+  --surface-container-highest: #e2e2e6;
+  --on-surface: #1a1c1f;
+  --on-surface-variant: #5f6368;
+  --orange: #ff9800;
+  --purple: #673ab7;
 }
 
-.container {
+.coins-layout, 
+.coins-layout *, 
+.coins-layout *::before, 
+.coins-layout *::after {
+  box-sizing: border-box;
 }
 
-.header {
+.mobile-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: var(--surface);
+  font-family: 'Hanken Grotesk', -apple-system, sans-serif;
+  overflow-x: hidden;
 }
 
-.content {
+.app-content {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  position: relative;
+  box-shadow: 0 0 40px rgba(0,0,0,0.05); 
 }
 
-.footer {
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--surface-card);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--surface-container-highest);
+}
+
+.brand-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin: 0;
+}
+
+.btn-lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--surface-container-highest);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icon-small {
+  width: 16px;
+  height: 16px;
+  color: var(--primary-dark); 
+}
+
+.coins-content {
+  flex: 1;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-bottom: 90px;
+}
+
+/* Wallet Balance Hero Card - Fixed Mobile Overflow */
+.wallet-card {
+  background: linear-gradient(135deg, #0052d4 0%, #4364f7 50%, #6fb1fc 100%);
+  border-radius: 20px;
+  padding: 20px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 82, 212, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.wallet-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.wallet-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.coin-icon-badge {
+  font-size: 20px;
+}
+
+.wallet-balance-box {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.balance-number {
+  font-size: 32px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+}
+
+.balance-label {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.wallet-subtitle {
+  font-size: 12px;
+  opacity: 0.85;
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Section Headings */
+.section-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.section-main-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.section-sub-title {
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  margin: 0;
+}
+
+/* Earning Method Cards */
+.earn-method-card {
+  background-color: var(--surface-card);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.earn-method-card.border-orange {
+  border-left: 4px solid var(--orange);
+}
+
+.earn-method-card.border-blue {
+  border-left: 4px solid var(--primary);
+}
+
+.method-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.method-icon-wrap svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bg-blue-light { background-color: #e3f2fd; }
+.bg-purple-light { background-color: #ede7f6; }
+
+.method-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.method-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.method-desc {
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Terms & Conditions Box */
+.tc-card {
+  background-color: var(--surface-card);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.tc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-info-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--on-surface-variant);
+  flex-shrink: 0;
+}
+
+.tc-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.tc-list {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tc-list li {
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Success Popup Modal */
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.popup-card {
+  background-color: var(--surface-card);
+  border-radius: 20px;
+  padding: 28px;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.popup-coin-anim {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.popup-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0 0 4px 0;
+}
+
+.popup-desc {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  margin: 0 0 20px 0;
+  line-height: 1.4;
+}
+
+.popup-btn {
+  width: 100%;
+  height: 44px;
+  background-color: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 98, 255, 0.25);
+}
+
+.bottom-nav-placeholder {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  max-width: 420px;
+  z-index: 100;
 }

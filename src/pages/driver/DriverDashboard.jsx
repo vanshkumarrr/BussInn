@@ -6,7 +6,7 @@ import "../../styles/DriverDashboard.css";
 const DriverDashboard = () => {
   const navigate = useNavigate();
 
-  // 1. Global Language State (Reads from localStorage, persists across app)
+  // 1. Global Language State
   const [isHindi, setIsHindi] = useState(() => {
     return localStorage.getItem("bussinn_lang") === "hi";
   });
@@ -17,40 +17,34 @@ const DriverDashboard = () => {
     localStorage.setItem("bussinn_lang", newLangState ? "hi" : "en");
   };
 
-  // 2. Load Driver Route Data and User Name from localStorage
-  const [routeDetails, setRouteDetails] = useState({
-    driverName: localStorage.getItem("bussinn_signup_name") || "Driver",
-    departure: "Central Station",
-    destination: "North Terminal",
-    stops: [],
-    startTime: "08:00",
-    endTime: "16:00",
-    routeCode: "RTE-42A"
-  });
-
-  useEffect(() => {
+  // 2. Load Driver Route Data & Name directly on initial render (Prevents reload shift)
+  const [routeDetails, setRouteDetails] = useState(() => {
     const savedConfig = localStorage.getItem("driver_route_config");
-    const registeredName = localStorage.getItem("bussinn_signup_name");
+    const registeredName = localStorage.getItem("bussinn_signup_name") || "Driver";
     
+    let parsedConfig = {
+      departure: "Central Station",
+      destination: "North Terminal",
+      stops: [],
+      startTime: "08:00",
+      endTime: "16:00",
+      routeCode: "RTE-42A"
+    };
+
     if (savedConfig) {
       try {
-        const parsed = JSON.parse(savedConfig);
-        setRouteDetails((prev) => ({
-          ...prev,
-          ...parsed,
-          driverName: registeredName || parsed.driverName || "Driver"
-        }));
+        parsedConfig = JSON.parse(savedConfig);
       } catch (e) {
         console.error("Failed to parse route config", e);
       }
-    } else if (registeredName) {
-      setRouteDetails(prev => ({ ...prev, driverName: registeredName }));
     }
-  }, []);
 
-  // Live Timer & Tracking State
-  const [isTracking, setIsTracking] = useState(false);
-  const [dutySeconds, setDutySeconds] = useState(0);
+    return {
+      ...parsedConfig,
+      driverName: registeredName
+    };
+  });
+
   const [timeError, setTimeError] = useState("");
 
   // Translation Dictionary
@@ -76,8 +70,7 @@ const DriverDashboard = () => {
       firstStop: "Starts from:",
       intermediateStop: "Intermediate Stop",
       endRoute: "Route Destination",
-      finalStop: "Ends at:",
-      timeWindowError: "Trip can only be started within ±30 minutes of scheduled start time!"
+      finalStop: "Ends at:"
     },
     hi: {
       greeting: `स्वागत है, ${routeDetails.driverName}`,
@@ -100,38 +93,16 @@ const DriverDashboard = () => {
       firstStop: "यहाँ से शुरू:",
       intermediateStop: "मध्यवर्ती स्टॉप",
       endRoute: "मार्ग गंतव्य",
-      finalStop: "यहाँ समाप्त:",
-      timeWindowError: "यात्रा केवल निर्धारित समय से ±30 मिनट के भीतर शुरू की जा सकती है!"
+      finalStop: "यहाँ समाप्त:"
     }
   };
 
   const t = isHindi ? content.hi : content.en;
 
-  // Timer Logic for Duty Hours
-  useEffect(() => {
-    let interval = null;
-    if (isTracking) {
-      interval = setInterval(() => {
-        setDutySeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isTracking]);
-
-  const formatDutyHours = (totalSeconds) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  };
-
-  // Navigate to Live Tracking on Start Trip
   const handleTripToggle = () => {
-    if (!isTracking) {
-      // Transition directly to the Live Tracking screen when starting trip
-      navigate({ to: "/driver/live-tracking" });
-    }
+    // Set flag so coins can be triggered when ending trip later
+    localStorage.setItem("trigger_coin_reward", "pending");
+    navigate({ to: "/driver/live-tracking" });
   };
 
   return (
@@ -200,7 +171,7 @@ const DriverDashboard = () => {
               </div>
               <div className="stat-box">
                 <span className="stat-label">{t.totalStops}</span>
-                <span className="stat-value text-tertiary">{routeDetails.stops.length + 2}</span>
+                <span className="stat-value text-tertiary">{(routeDetails.stops?.length || 0) + 2}</span>
               </div>
               <div className="stat-box">
                 <span className="stat-label">{t.routeCode}</span>
@@ -260,7 +231,7 @@ const DriverDashboard = () => {
                 </div>
               </div>
 
-              {routeDetails.stops.map((stopName, idx) => (
+              {routeDetails.stops && routeDetails.stops.map((stopName, idx) => (
                 <div className="timeline-item" key={idx}>
                   <div className="time-block">
                     <span className="time">Stop {idx + 1}</span>

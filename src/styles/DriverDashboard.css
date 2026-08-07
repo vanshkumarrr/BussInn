@@ -55,6 +55,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
+  border-bottom: 1px solid var(--outline);
 }
 
 .brand-title {
@@ -100,7 +101,7 @@
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
-  padding-bottom: 80px;
+  padding-bottom: 90px;
 }
 
 /* Welcome Card */
@@ -163,7 +164,7 @@
   height: 20px;
 }
 
-/* Route Details Card */
+/* Route Details Card - Fixed Layout Stability on Reload */
 .info-card {
   background-color: var(--surface-card);
   border-radius: 16px;
@@ -171,23 +172,28 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 180px;
 }
 
 .card-indicator {
   position: absolute;
   left: 0;
-  top: 20px;
-  bottom: 20px;
-  width: 4px;
+  top: 0;
+  bottom: 0;
+  width: 5px;
   background-color: var(--orange);
-  border-radius: 0 4px 4px 0;
+  flex-shrink: 0;
 }
 
 .route-card-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  gap: 12px;
+  width: 100%;
   padding-left: 8px;
 }
 
@@ -197,14 +203,17 @@
   color: var(--on-surface-variant);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  display: block;
+  margin-bottom: 4px;
 }
 
 .route-name {
   font-size: 18px;
   font-weight: 700;
   color: var(--on-surface);
-  margin: 4px 0 0 0;
+  margin: 0;
   line-height: 1.3;
+  word-break: break-word;
 }
 
 .status-badge {
@@ -218,6 +227,7 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .status-dot {
@@ -231,6 +241,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  width: 100%;
   padding-left: 8px;
 }
 
@@ -374,6 +385,7 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--on-surface);
+  word-break: break-all;
 }
 
 .timeline-node {
@@ -385,6 +397,7 @@
   justify-content: center;
   margin-right: 16px;
   border: 4px solid var(--surface-card);
+  flex-shrink: 0;
 }
 
 .timeline-node svg {
@@ -413,6 +426,7 @@
   font-size: 12px;
   color: var(--on-surface-variant);
   margin: 0;
+  word-break: break-word;
 }
 
 .bottom-nav-placeholder {

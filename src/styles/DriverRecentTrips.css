@@ -1,17 +1,251 @@
-@import "./base.css";
-
-/* DriverRecentTrips page styles — intentionally empty. Design this page yourself. */
-.page {
+:root {
+  --primary: #0062ff;
+  --primary-dark: #004cca;
+  --on-primary: #ffffff;
+  --surface: #f4f6f9;
+  --surface-card: #ffffff;
+  --surface-container-highest: #e2e2e6;
+  --on-surface: #1a1c1f;
+  --on-surface-variant: #5f6368;
+  --success: #0f9d58;
 }
 
-.container {
+.trips-layout, 
+.trips-layout *, 
+.trips-layout *::before, 
+.trips-layout *::after {
+  box-sizing: border-box;
 }
 
-.header {
+.mobile-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: var(--surface);
+  font-family: 'Hanken Grotesk', -apple-system, sans-serif;
+  overflow-x: hidden;
 }
 
-.content {
+.app-content {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  position: relative;
+  box-shadow: 0 0 40px rgba(0,0,0,0.05); 
 }
 
-.footer {
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--surface-card);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--surface-container-highest);
+}
+
+.brand-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin: 0;
+}
+
+.btn-lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--surface-container-highest);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  border: none;
+  cursor: pointer;
+}
+
+.icon-small {
+  width: 16px;
+  height: 16px;
+  color: var(--primary-dark); 
+}
+
+.trips-content {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  padding-bottom: 90px;
+}
+
+.page-heading-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  margin: 0;
+}
+
+/* Empty State Card ("None") */
+.empty-state-card {
+  background-color: var(--surface-card);
+  border-radius: 20px;
+  padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  margin-top: 20px;
+}
+
+.empty-icon-circle {
+  width: 64px;
+  height: 64px;
+  background-color: #e3f2fd;
+  color: var(--primary-dark);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.empty-icon-circle svg {
+  width: 32px;
+  height: 32px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0 0 8px 0;
+}
+
+.empty-desc {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+/* Trips List & Cards */
+.trips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trip-card {
+  background-color: var(--surface-card);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-left: 4px solid var(--success);
+}
+
+.trip-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.trip-code {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--primary-dark);
+  background-color: #e3f2fd;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.trip-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--success);
+  background-color: #e8f5e9;
+  padding: 4px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.trip-route-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-endpoints {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.trip-date {
+  font-size: 12px;
+  color: var(--on-surface-variant);
+}
+
+.trip-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background-color: var(--surface);
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+
+.metric-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.bottom-nav-placeholder {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  max-width: 420px;
+  z-index: 100;
 }
