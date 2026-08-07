@@ -1,3 +1,4 @@
+/* Color Variables */
 :root {
   --primary: #0062ff;
   --primary-dark: #004cca;
@@ -44,6 +45,7 @@
   box-shadow: 0 0 40px rgba(0,0,0,0.05); 
 }
 
+/* Header */
 .dash-header {
   display: flex;
   justify-content: space-between;
@@ -76,7 +78,7 @@
   color: var(--on-surface-variant);
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: background-color 0.2s;
   flex-shrink: 0;
 }
 
@@ -90,6 +92,7 @@
   color: var(--primary-dark); 
 }
 
+/* Main Content Area */
 .dash-content {
   flex: 1;
   padding: 16px;
@@ -100,6 +103,7 @@
   padding-bottom: 80px;
 }
 
+/* Welcome Card */
 .welcome-card {
   background-color: var(--surface-highlight);
   border-radius: 16px;
@@ -147,23 +151,11 @@
   gap: 8px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 98, 255, 0.25);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.1s ease;
 }
 
 .btn-trip:active {
   transform: scale(0.97);
-}
-
-.btn-trip-active {
-  background-color: var(--secondary);
-  box-shadow: 0 4px 16px rgba(211, 47, 47, 0.3);
-  animation: pulse-red 2s infinite;
-}
-
-@keyframes pulse-red {
-  0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(211, 47, 47, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
 }
 
 .trip-icon {
@@ -171,6 +163,7 @@
   height: 20px;
 }
 
+/* Route Details Card */
 .info-card {
   background-color: var(--surface-card);
   border-radius: 16px;
@@ -234,11 +227,6 @@
   background-color: #00897b;
 }
 
-.status-dot.live {
-  background-color: var(--secondary);
-  animation: pulse-red 1.5s infinite;
-}
-
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -270,6 +258,7 @@
 .text-primary { color: var(--primary-dark); }
 .text-tertiary { color: var(--tertiary); }
 
+/* Quick Stats Row */
 .quick-stats-row {
   display: flex;
   gap: 16px;
@@ -316,16 +305,7 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-.pulsing-text {
-  color: var(--secondary);
-  animation: text-pulse 1.5s infinite alternate;
-}
-
-@keyframes text-pulse {
-  from { opacity: 1; }
-  to { opacity: 0.6; }
-}
-
+/* Schedule Section */
 .schedule-section {
   background-color: var(--surface-card);
   border-radius: 16px;
@@ -353,6 +333,7 @@
   text-decoration: none;
 }
 
+/* Timeline */
 .timeline {
   display: flex;
   flex-direction: column;

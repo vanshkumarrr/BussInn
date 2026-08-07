@@ -1,17 +1,326 @@
-@import "./base.css";
-
-/* DriverLiveTracking page styles — intentionally empty. Design this page yourself. */
-.page {
+:root {
+  --primary: #0062ff;
+  --primary-dark: #004cca;
+  --on-primary: #ffffff;
+  --secondary: #d32f2f;
+  --surface: #f4f6f9;
+  --surface-card: #ffffff;
+  --surface-container-highest: #e2e2e6;
+  --on-surface: #1a1c1f;
+  --on-surface-variant: #5f6368;
+  --success: #0f9d58;
 }
 
-.container {
+.tracking-layout, 
+.tracking-layout *, 
+.tracking-layout *::before, 
+.tracking-layout *::after {
+  box-sizing: border-box;
 }
 
-.header {
+.app-content.tracking-layout {
+  padding: 0;
+  overflow-y: auto;
 }
 
-.content {
+/* Header Sticky */
+.tracking-layout .dash-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
 }
 
-.footer {
+/* SECTION 1: Map Viewport (Takes ~70% of mobile screen height) */
+.map-viewport-section {
+  position: relative;
+  width: 100%;
+  height: 68vh; /* ~70% screen height */
+  min-height: 420px;
+  background-color: #e5e9f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-overlay-badge {
+  position: absolute;
+  top: 76px;
+  left: 16px;
+  z-index: 20;
+  background-color: var(--surface-card);
+  padding: 6px 14px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-surface);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.live-pulsing-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--secondary);
+  border-radius: 50%;
+  animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(211, 47, 47, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
+}
+
+/* Map Canvas Placeholder (Ready for Google Maps / Mapbox or Image) */
+.map-canvas-placeholder {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  background: linear-gradient(135deg, #e8edf5 0%, #d8e2f3 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Simulated Swiggy/Zomato style map grid lines */
+.map-mock-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(0, 98, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 98, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.bus-marker-pin {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  background-color: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 98, 255, 0.4);
+  z-index: 10;
+}
+
+.bus-marker-pin svg {
+  width: 24px;
+  height: 24px;
+}
+
+.marker-pulse {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  animation: radar-wave 2s infinite;
+}
+
+@keyframes radar-wave {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.map-watermark {
+  position: absolute;
+  bottom: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  background: rgba(255, 255, 255, 0.8);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.map-bottom-sheet-handle {
+  height: 32px;
+  background-color: var(--surface-card);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: -16px;
+  position: relative;
+  z-index: 30;
+}
+
+.map-bottom-sheet-handle span {
+  width: 36px;
+  height: 4px;
+  background-color: var(--surface-container-highest);
+  border-radius: 2px;
+}
+
+.map-bottom-sheet-handle p {
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* SECTION 2: Scrollable Route Progress */
+.route-details-scroll-section {
+  background-color: var(--surface-card);
+  padding: 20px 20px 100px 20px;
+  min-height: 50vh;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+  position: relative;
+  z-index: 40;
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.route-code-pill {
+  font-size: 12px;
+  font-weight: 700;
+  background-color: #e3f2fd;
+  color: var(--primary-dark);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Live Timeline Stops */
+.live-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 24px;
+}
+
+.live-timeline-node-item {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+
+.node-marker-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+}
+
+.node-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--surface-container-highest);
+  border: 3px solid var(--on-surface-variant);
+  z-index: 2;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.node-line {
+  width: 2px;
+  flex: 1;
+  background-color: var(--surface-container-highest);
+  margin: 4px 0;
+}
+
+.node-content-box {
+  flex: 1;
+  background-color: var(--surface);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border: 1px solid transparent;
+}
+
+.node-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.stop-title-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.stop-status-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background-color: var(--surface-container-highest);
+  color: var(--on-surface-variant);
+}
+
+.stop-type-subtext {
+  font-size: 12px;
+  color: var(--on-surface-variant);
+}
+
+/* States for Passed / Active Stops */
+.live-timeline-node-item.passed .node-dot {
+  background-color: var(--success);
+  border-color: var(--success);
+}
+.live-timeline-node-item.passed .node-line {
+  background-color: var(--success);
+}
+.live-timeline-node-item.passed .node-content-box {
+  opacity: 0.7;
+}
+
+.live-timeline-node-item.active .node-dot {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(0, 98, 255, 0.2);
+}
+.live-timeline-node-item.active .node-content-box {
+  border-color: var(--primary);
+  background-color: #f0f5ff;
+}
+.live-timeline-node-item.active .tag-active {
+  background-color: var(--primary);
+  color: #fff;
+}
+
+/* End Trip Action */
+.tracking-bottom-actions {
+  width: 100%;
+}
+
+.btn-end-trip-action {
+  width: 100%;
+  height: 52px;
+  background-color: var(--secondary);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.25);
 }

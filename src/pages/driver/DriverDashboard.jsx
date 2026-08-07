@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import DriverBottomNav from "../../components/DriverBottomNav";
 import "../../styles/DriverDashboard.css";
 
 const DriverDashboard = () => {
+  const navigate = useNavigate();
+
   // 1. Global Language State (Reads from localStorage, persists across app)
   const [isHindi, setIsHindi] = useState(() => {
     return localStorage.getItem("bussinn_lang") === "hi";
@@ -123,25 +126,12 @@ const DriverDashboard = () => {
     return `${hours}h ${minutes}m`;
   };
 
-  // ±30 Minute Window Validation Logic
+  // Navigate to Live Tracking on Start Trip
   const handleTripToggle = () => {
     if (!isTracking) {
-      const [schedHours, schedMinutes] = routeDetails.startTime.split(":").map(Number);
-      const now = new Date();
-      const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-      const schedTotalMinutes = schedHours * 60 + schedMinutes;
-
-      const diffMinutes = Math.abs(currentTotalMinutes - schedTotalMinutes);
-
-      // Optional strict window check (uncomment if required)
-      // if (diffMinutes > 30) {
-      //   setTimeError(t.timeWindowError);
-      //   return;
-      // }
+      // Transition directly to the Live Tracking screen when starting trip
+      navigate({ to: "/driver/live-tracking" });
     }
-
-    setTimeError("");
-    setIsTracking(!isTracking);
   };
 
   return (
@@ -174,24 +164,13 @@ const DriverDashboard = () => {
             {timeError && <p className="error-banner">{timeError}</p>}
 
             <button 
-              className={`btn-trip ${isTracking ? 'btn-trip-active' : ''}`}
+              className="btn-trip"
               onClick={handleTripToggle}
             >
-              {isTracking ? (
-                <>
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="trip-icon">
-                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                  </svg>
-                  {t.endTrip}
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="trip-icon">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  {t.startTrip}
-                </>
-              )}
+              <svg viewBox="0 0 24 24" fill="currentColor" className="trip-icon">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              {t.startTrip}
             </button>
           </section>
 
@@ -205,8 +184,8 @@ const DriverDashboard = () => {
                 <h3 className="route-name">{routeDetails.departure} → {routeDetails.destination}</h3>
               </div>
               <div className="status-badge">
-                <span className={`status-dot ${isTracking ? 'live' : ''}`}></span>
-                {isTracking ? t.live : t.ready}
+                <span className="status-dot"></span>
+                {t.ready}
               </div>
             </div>
 
@@ -241,9 +220,7 @@ const DriverDashboard = () => {
               </div>
               <div className="stat-text-group">
                 <span className="stat-label">{t.dutyHours}</span>
-                <span className={`stat-value-large ${isTracking ? 'pulsing-text' : ''}`}>
-                  {formatDutyHours(dutySeconds)}
-                </span>
+                <span className="stat-value-large">0h 0m</span>
               </div>
             </div>
 
@@ -268,8 +245,6 @@ const DriverDashboard = () => {
             </div>
 
             <div className="timeline">
-              
-              {/* Departure Point */}
               <div className="timeline-item">
                 <div className="time-block">
                   <span className="time">{routeDetails.startTime}</span>
@@ -285,7 +260,6 @@ const DriverDashboard = () => {
                 </div>
               </div>
 
-              {/* Dynamic Intermediate Stops Added by Driver */}
               {routeDetails.stops.map((stopName, idx) => (
                 <div className="timeline-item" key={idx}>
                   <div className="time-block">
@@ -303,7 +277,6 @@ const DriverDashboard = () => {
                 </div>
               ))}
 
-              {/* Destination Point */}
               <div className="timeline-item">
                 <div className="time-block">
                   <span className="time">{routeDetails.endTime}</span>
