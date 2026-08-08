@@ -71,13 +71,15 @@ const PassengerSearch = () => {
     setDate(formatDisplayDate(tomorrow));
   };
 
-  // Handle Search Execution
+  // Handle Search Execution - Passing user entered from and to locations via search parameters
   const handleSearch = (e) => {
     e.preventDefault();
     if (!from.trim() || !to.trim()) return;
 
-    // Navigate to results page
-    navigate({ to: "/passenger/results" });
+    navigate({ 
+      to: "/passenger/results", 
+      search: { from: from.trim(), to: to.trim() } 
+    });
   };
 
   return (
