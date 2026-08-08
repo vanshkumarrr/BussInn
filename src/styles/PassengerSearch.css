@@ -1,17 +1,60 @@
-@import "./base.css";
-
-/* PassengerSearch page styles — intentionally empty. Design this page yourself. */
-.page {
+/* Page and Container Layout */
+.passenger-choice-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #f4f6f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.container {
+.passenger-choice-page *, 
+.passenger-choice-page *::before, 
+.passenger-choice-page *::after {
+  box-sizing: border-box;
 }
 
-.header {
+/* App Viewport Container */
+.app-content {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f4f6f9;
+  position: relative;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.content {
+.app-content::-webkit-scrollbar {
+  display: none;
 }
 
-.footer {
+/* Search Header Styling */
+.passenger-header-search {
+  background-color: #0052CC;
+  color: white;
+  padding: 24px 20px 48px 20px;
+  border-bottom-left-radius: 36px;
+  border-bottom-right-radius: 36px;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* Main Content Area */
+.passenger-main-content-search {
+  flex: 1;
+  padding: 0 20px;
+  margin-top: -32px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
 }

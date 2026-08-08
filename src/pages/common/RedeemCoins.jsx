@@ -18,7 +18,7 @@ const RedeemCoins = () => {
   // 2. Wallet Balance State
   const [coins, setCoins] = useState(() => {
     const savedCoins = localStorage.getItem("driver_coins_balance");
-    return savedCoins ? parseInt(savedCoins, 10) : 25000;
+    return savedCoins ? parseInt(savedCoins, 10) : 0;
   });
 
   // 3. Notification Popup State

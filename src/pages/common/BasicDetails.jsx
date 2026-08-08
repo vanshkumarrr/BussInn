@@ -86,8 +86,12 @@ const BasicDetails = () => {
       return;
     }
 
+    // Save details into localStorage so they sync with the profile page
     localStorage.setItem("signupPhone", form.phone);
     localStorage.setItem("bussinn_signup_name", form.name);
+    localStorage.setItem("passenger_name", form.name);
+    localStorage.setItem("passenger_phone", form.phone);
+    localStorage.setItem("passenger_city", form.city);
 
     navigate({ to: "/verify-otp" });
   };

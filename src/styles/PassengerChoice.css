@@ -1,17 +1,232 @@
-@import "./base.css";
-
-/* PassengerChoice page styles — intentionally empty. Design this page yourself. */
-.page {
+:root {
+  --primary: #0062ff;
+  --primary-dark: #004cca;
+  --on-primary: #ffffff;
+  --surface: #f4f6f9;
+  --surface-card: #ffffff;
+  --surface-container-highest: #e2e2e6;
+  --on-surface: #1a1c1f;
+  --on-surface-variant: #5f6368;
+  --orange: #ff9800;
+  --outline: #737687;
 }
 
-.container {
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-.header {
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  background-color: var(--surface);
+  font-family: 'Hanken Grotesk', -apple-system, sans-serif;
 }
 
-.content {
+.passenger-choice-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--surface);
 }
 
-.footer {
+.app-content {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  position: relative;
+  box-shadow: 0 0 40px rgba(0,0,0,0.05);
+  overflow-x: hidden;
+}
+
+.passenger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--surface-card);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--surface-container-highest);
+  width: 100%;
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand-bus-svg {
+  width: 24px;
+  height: 24px;
+  color: var(--primary-dark);
+  flex-shrink: 0;
+}
+
+.brand-title-text {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  letter-spacing: -0.01em;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.btn-lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--surface-container-highest);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.passenger-main-content {
+  flex: 1;
+  width: 100%;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.passenger-content-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-text-section {
+  margin-bottom: 24px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.hero-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--on-surface);
+  line-height: 1.2;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+  word-break: break-word;
+}
+
+.hero-subtitle {
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  line-height: 20px;
+  margin: 0;
+  word-break: break-word;
+}
+
+.cards-stack-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.decision-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-card);
+  border-radius: 20px;
+  padding: 18px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid var(--surface-container-highest);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  overflow: hidden;
+}
+
+.decision-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 98, 255, 0.08);
+  border-color: rgba(0, 98, 255, 0.2);
+}
+
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  width: 100%;
+}
+
+.card-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--on-primary);
+  flex-shrink: 0;
+}
+
+.blue-box {
+  background-color: var(--primary);
+}
+
+.orange-box {
+  background-color: var(--orange);
+}
+
+.card-svg-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.arrow-svg {
+  width: 18px;
+  height: 18px;
+  color: var(--outline);
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.decision-card:hover .arrow-svg {
+  transform: translateX(4px);
+  color: var(--on-surface);
+}
+
+.card-bottom-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.card-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin: 0 0 6px 0;
+  word-break: break-word;
+}
+
+.card-desc {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  line-height: 19px;
+  margin: 0;
+  word-break: break-word;
 }

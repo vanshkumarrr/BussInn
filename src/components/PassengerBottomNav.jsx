@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import "../styles/BottomNav.css";
+import "../styles/PassengerBottomNav.css";
 
 // Passenger bottom navigation — placeholder only, no styling.
 // TODO: Design this bar (icons + active state) later.

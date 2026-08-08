@@ -3,60 +3,67 @@ import DriverBottomNav from "../../components/DriverBottomNav";
 import "../../styles/DriverCoins.css";
 
 const DriverCoins = () => {
-  // 1. Global Language State (Reads from localStorage, persists across app)
   const [isHindi, setIsHindi] = useState(() => {
+    if (typeof window === "undefined") return false;
     return localStorage.getItem("bussinn_lang") === "hi";
   });
 
   const toggleLanguage = () => {
     const newLangState = !isHindi;
     setIsHindi(newLangState);
-    localStorage.setItem("bussinn_lang", newLangState ? "hi" : "en");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("bussinn_lang", newLangState ? "hi" : "en");
+    }
   };
 
-  // 2. Coin Balance State
+  // Initialize coins: defaults to 0 if not set in localStorage
   const [coins, setCoins] = useState(() => {
+    if (typeof window === "undefined") return 0;
     const savedCoins = localStorage.getItem("driver_coins_balance");
-    return savedCoins ? parseInt(savedCoins, 10) : 150; // Default startup bonus or 0
+    if (savedCoins === null) {
+      localStorage.setItem("driver_coins_balance", "0");
+      return 0;
+    }
+    return parseInt(savedCoins, 10);
   });
 
-  // 3. Popup Notification State
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
 
-  // Check and Claim Coins when End Trip is triggered
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const tripEndedFlag = localStorage.getItem("trigger_coin_reward");
     if (tripEndedFlag === "pending") {
       processTripReward();
       localStorage.removeItem("trigger_coin_reward");
     }
+
+    const handleStorageChange = () => {
+      const updatedCoins = localStorage.getItem("driver_coins_balance");
+      if (updatedCoins !== null) {
+        setCoins(parseInt(updatedCoins, 10));
+      } else {
+        setCoins(0);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const processTripReward = () => {
-    const routeConfig = JSON.parse(localStorage.getItem("driver_route_config") || "{}");
+    if (typeof window === "undefined") return;
+    const currentCoins = parseInt(localStorage.getItem("driver_coins_balance") || "0", 10);
+    const earnedAmount = 50;
+    const newTotal = currentCoins + earnedAmount;
     
-    // Time Validation Logic (±30 min check)
-    // For demo purposes, we simulate trip duration check against scheduled time
-    const isTimeValid = true; // TODO: Implement exact timestamp delta check here ($\pm 30$ mins)
-
-    // TODO: [FUTURE LOGIC - SPEED & STOPS CHECK]
-    // Check average speed, frequent stops, or if speed exceeds 70km/h for >40 mins.
-    // const isPrivateVehicle = checkOverspeedingAndStops();
-    // if (isPrivateVehicle) { showWarning("Identified as private vehicle. No coins awarded."); return; }
-
-    if (isTimeValid) {
-      const earnedAmount = 50;
-      const newTotal = coins + earnedAmount;
-      setCoins(newTotal);
-      localStorage.setItem("driver_coins_balance", newTotal.toString());
-      
-      setPopupMessage(isHindi ? "🎉 वॉलेट में 50 सिक्के जोड़े गए!" : "🎉 50 coins added in the wallet!");
-      setShowPopup(true);
-    }
+    setCoins(newTotal);
+    localStorage.setItem("driver_coins_balance", newTotal.toString());
+    
+    setPopupMessage(isHindi ? "🎉 वॉलेट में 50 सिक्के जोड़े गए!" : "🎉 50 coins added in the wallet!");
+    setShowPopup(true);
   };
 
-  // Translation Dictionary
   const content = {
     en: {
       walletTitle: "Driver Wallet",
@@ -98,11 +105,10 @@ const DriverCoins = () => {
     <div className="mobile-page-container">
       <div className="app-content coins-layout">
         
-        {/* Header with Global Language Toggle */}
         <header className="dash-header">
           <h1 className="brand-title">BussInn</h1>
           <button 
-            className="btn-lang-pill"
+            className="btn-lang-pill cursor-pointer"
             onClick={toggleLanguage}
             title="Change Language"
           >
@@ -113,10 +119,7 @@ const DriverCoins = () => {
           </button>
         </header>
 
-        {/* Main Scrollable Area */}
         <main className="coins-content">
-          
-          {/* Wallet Balance Hero Card */}
           <div className="wallet-card">
             <div className="wallet-glow"></div>
             <div className="wallet-header-row">
@@ -130,13 +133,11 @@ const DriverCoins = () => {
             <p className="wallet-subtitle">{t.coinSub}</p>
           </div>
 
-          {/* Section Heading */}
           <div className="section-title-block">
             <h2 className="section-main-title">{t.howToEarnTitle}</h2>
             <p className="section-sub-title">{t.howToEarnSub}</p>
           </div>
 
-          {/* Earning Method Card 1 */}
           <div className="earn-method-card border-orange">
             <div className="method-icon-wrap bg-blue-light">
               <svg viewBox="0 0 24 24" fill="none" stroke="#0062ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -151,7 +152,6 @@ const DriverCoins = () => {
             </div>
           </div>
 
-          {/* Earning Method Card 2 */}
           <div className="earn-method-card border-blue">
             <div className="method-icon-wrap bg-purple-light">
               <svg viewBox="0 0 24 24" fill="none" stroke="#673ab7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -167,7 +167,6 @@ const DriverCoins = () => {
             </div>
           </div>
 
-          {/* Terms & Conditions Section */}
           <div className="tc-card">
             <div className="tc-header">
               <svg className="tc-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -184,20 +183,15 @@ const DriverCoins = () => {
               <li>{t.tc3}</li>
             </ul>
           </div>
-
         </main>
 
-        {/* Reward Success Popup Modal */}
         {showPopup && (
           <div className="popup-overlay">
             <div className="popup-card">
               <div className="popup-coin-anim">🪙✨</div>
               <h3 className="popup-title">Coins Credited!</h3>
               <p className="popup-desc">{popupMessage}</p>
-              <button 
-                className="popup-btn" 
-                onClick={() => setShowPopup(false)}
-              >
+              <button className="popup-btn cursor-pointer" onClick={() => setShowPopup(false)}>
                 {t.closeBtn}
               </button>
             </div>
