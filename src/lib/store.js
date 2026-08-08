@@ -36,7 +36,7 @@ const SEED_BUSES = [
   {
     id: "bus-2",
     name: "Bus 2",
-    operator: "Volvo Multi-Axle A/C Sleeper (2+1)",
+  
     rating: 4.6,
     reviews: 128,
     confidence: 65,
