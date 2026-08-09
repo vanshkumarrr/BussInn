@@ -13,7 +13,7 @@ export function calculateTravelDistance(history: GPSPoint[]): number {
   let total = 0;
 
   for (let i = 1; i < history.length; i++) {
-    total += calculateDistance(history[i - 1], history[i]);
+    total += calculateDistance(history[i - 1]!, history[i]!);
   }
 
   return total;
