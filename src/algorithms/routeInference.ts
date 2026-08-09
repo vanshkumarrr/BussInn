@@ -1,27 +1,33 @@
-import { calculateDistance } from "./geoUtils";
-import type { BusRoute, GPSPoint } from "./types";
+import type { GPSPoint, BusRoute } from "./types";
+import { calculateTravelDistance } from "./movement";
 
-export function findNearestRoute(
-  passengerLocation: GPSPoint,
+export interface RouteResult {
+  routeId: string;
+  score: number;
+}
+
+export function inferBestRoute(
+  history: GPSPoint[],
   routes: BusRoute[]
-): BusRoute | null {
-  let nearestRoute: BusRoute | null = null;
-  let shortestDistance = Number.POSITIVE_INFINITY;
+): RouteResult | null {
+  if (history.length < 2 || routes.length === 0) {
+    return null;
+  }
+
+  const travelDistance = calculateTravelDistance(history);
+
+  let bestRoute: RouteResult | null = null;
 
   for (const route of routes) {
-    for (const stop of route.stops) {
-      const distance = calculateDistance(passengerLocation, {
-        latitude: stop.latitude,
-        longitude: stop.longitude,
-        timestamp: passengerLocation.timestamp,
-      });
+    const score = Math.min(travelDistance / 1000, 100);
 
-      if (distance < shortestDistance) {
-        shortestDistance = distance;
-        nearestRoute = route;
-      }
+    if (!bestRoute || score > bestRoute.score) {
+      bestRoute = {
+        routeId: route.id,
+        score,
+      };
     }
   }
 
-  return nearestRoute;
+  return bestRoute;
 }
