@@ -1,0 +1,371 @@
+/* =========================================================
+   Page shell — same flat background as AdminOverview so both
+   screens read as one continuous app, not separate frames.
+   ========================================================= */
+.addbus-page {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  font-family: "Hanken Grotesk", sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: #f4f5fb;
+}
+
+.addbus-page *,
+.addbus-page *::before,
+.addbus-page *::after {
+  box-sizing: border-box;
+}
+
+.addbus-content {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f4f5fb;
+  padding: 16px 16px 110px;
+}
+
+/* =========================================================
+   Top header card — identical brand mark to AdminOverview
+   ========================================================= */
+.addbus-topbar-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  padding: 14px 16px;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(226, 226, 230, 0.6);
+  margin-bottom: 16px;
+}
+
+.addbus-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.addbus-logo-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: #0052cc;
+  padding: 5px;
+  background: #e6f0ff;
+  border-radius: 9px;
+}
+
+.addbus-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.addbus-title-group h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0052cc;
+  margin: 0;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.addbus-title-group p {
+  font-size: 11px;
+  color: #5f6368;
+  margin: 0;
+  font-weight: 500;
+}
+
+.addbus-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0f2f5;
+  color: #1a1c1f;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.addbus-back-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.addbus-back-btn:hover {
+  background: #e4e7ec;
+}
+
+/* =========================================================
+   Section heading
+   ========================================================= */
+.addbus-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1c1f;
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addbus-section-title::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #0052cc, #7c3aed);
+  display: inline-block;
+}
+
+.addbus-section-subtitle {
+  font-size: 12px;
+  color: #5f6368;
+  margin: 0 0 14px 0;
+  font-weight: 500;
+}
+
+/* =========================================================
+   Form card
+   ========================================================= */
+.addbus-form-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 226, 230, 0.6);
+  border-top: 3px solid #0052cc;
+  padding: 18px 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.addbus-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group.full-width {
+  grid-column: span 2;
+}
+
+.form-group label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #5f6368;
+  text-transform: uppercase;
+}
+
+.field {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  color: #1a1c1f;
+  background-color: #f8fafc;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.field:focus {
+  border-color: #0052cc;
+  background-color: #ffffff;
+}
+
+/* Native time picker — user can only ever produce a valid HH:MM,
+   no free-typed garbage. */
+.field-time {
+  font-weight: 600;
+  color: #0052cc;
+  cursor: pointer;
+}
+
+.field-time::-webkit-calendar-picker-indicator {
+  filter: invert(24%) sepia(94%) saturate(2000%) hue-rotate(211deg) brightness(96%) contrast(101%);
+  cursor: pointer;
+}
+
+/* =========================================================
+   Auto-calculated duration / ETA display
+   ========================================================= */
+.duration-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #eef4ff, #f3efff);
+  border: 1px solid #dce6ff;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.duration-icon {
+  width: 20px;
+  height: 20px;
+  color: #0052cc;
+  flex-shrink: 0;
+}
+
+.duration-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.duration-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.duration-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0052cc;
+}
+
+/* =========================================================
+   Rating / Confidence sliders
+   ========================================================= */
+.slider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.slider-row label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #5f6368;
+  text-transform: uppercase;
+}
+
+.slider-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0052cc;
+  background: #eef4ff;
+  padding: 2px 9px;
+  border-radius: 9999px;
+}
+
+.field-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0052cc, #7c3aed);
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.field-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #0052cc;
+  box-shadow: 0 2px 6px rgba(0, 82, 204, 0.35);
+  cursor: pointer;
+}
+
+.field-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #0052cc;
+  box-shadow: 0 2px 6px rgba(0, 82, 204, 0.35);
+  cursor: pointer;
+}
+
+.field-error {
+  grid-column: span 2;
+  color: #ba1a1a;
+  background: #fdecea;
+  border: 1px solid #ffdad6;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 12px 0 0 0;
+}
+
+/* =========================================================
+   Actions row
+   ========================================================= */
+.addbus-actions-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn-submit-addbus {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #0052cc, #2f6fed);
+  color: #ffffff;
+  border: none;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.25);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.btn-submit-addbus svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-submit-addbus:hover {
+  box-shadow: 0 6px 16px rgba(0, 82, 204, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-submit-addbus:active {
+  transform: translateY(1px);
+}
+
+.btn-cancel-addbus {
+  background-color: #f0f2f5;
+  color: #1a1c1f;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-cancel-addbus:hover {
+  background-color: #e4e7ec;
+}
