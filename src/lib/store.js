@@ -9,23 +9,37 @@ export const ADMIN_PASSWORD = "BussInn@123";
 
 const SEED_BUSES = [
   {
-    id: "bus-1",
-    name: "Bus 1",
-    operator: "Bharat Benz A/C Seater /Sleeper (2+1)",
-    rating: 4.8,
-    reviews: 209,
-    confidence: 95,
-    distanceAway: "1.4 km away",
-    departTime: "22:00",
-    departStop: "Swargate",
-    arriveTime: "05:15",
-    arriveStop: "Andheri East",
-    duration: "7h 15m",
-    eta: "12 mins",
-    price: 559,
-    oldPrice: 699,
-    live: true,
-    accent: "#12b76a",
+    
+  id: "bus-1",
+  busNumber: "MH12AB1001",
+  name: "Bus 1",
+  operator: "Bharat Benz A/C Seater /Sleeper (2+1)",
+  busType: "AC Sleeper",
+  registrationNumber: "MH12AB1001",
+  capacity: 42,
+  status: "ACTIVE",
+
+  rating: 4.8,
+  reviews: 209,
+  confidence: 95,
+  distanceAway: "1.4 km away",
+
+  departTime: "22:00",
+  departStop: "Swargate",
+
+  arriveTime: "05:15",
+  arriveStop: "Andheri East",
+
+  duration: "7h 15m",
+  eta: "12 mins",
+
+  price: 559,
+  oldPrice: 699,
+
+  live: true,
+  accent: "#12b76a",
+
+  
     stops: [
       { name: "Swargate", time: "22:00" },
       { name: "Katraj", time: "22:40" },
@@ -35,7 +49,12 @@ const SEED_BUSES = [
   },
   {
     id: "bus-2",
+    busNumber: "MH14CD2002",
     name: "Bus 2",
+    busType: "Non AC Seater",
+    registrationNumber: "MH14CD2002",
+    capacity: 36,
+    status: "ACTIVE", 
   
     rating: 4.6,
     reviews: 128,
@@ -84,7 +103,20 @@ function saveBuses(buses) {
 
 export function addBus(bus) {
   const buses = getBuses();
-  const next = [...buses, { ...bus, id: `bus-${Date.now()}` }];
+  const next = [
+  ...buses,
+  {
+    status: "ACTIVE",
+    capacity: bus.capacity || 40,
+    busType: bus.busType || "AC Sleeper",
+    registrationNumber:
+      bus.registrationNumber || `TEMP-${Date.now()}`,
+    busNumber:
+      bus.busNumber || `BUS-${Date.now()}`,
+    ...bus,
+    id: `bus-${Date.now()}`
+  }
+];
   saveBuses(next);
   return next;
 }
