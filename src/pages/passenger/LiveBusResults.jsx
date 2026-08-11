@@ -3,7 +3,7 @@ import { matchesRoute } from "../../algorithms/routeMatcher";
 import { useEffect, useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
-import { getBuses } from "../../lib/store";
+import { fetchBuses } from "../../services/busService";
 import "../../styles/LiveBusResults.css";
 
 const LiveBusResults = () => {
@@ -15,8 +15,8 @@ const LiveBusResults = () => {
   const searchTo = searchParams?.to || "Mumbai";
 
   useEffect(() => {
-  const load = () => {
-    const allBuses = getBuses();
+  const load = async () => {
+    const allBuses = await fetchBuses();
 
     console.log(allBuses);
 
