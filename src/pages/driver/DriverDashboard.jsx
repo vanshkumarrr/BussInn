@@ -5,11 +5,51 @@ import "../../styles/DriverDashboard.css";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
+const [LiveBusMapComponent, setLiveBusMapComponent] = useState(null);
+
+useEffect(() => {
+  import("../../components/LiveBusMap").then((module) => {
+    setLiveBusMapComponent(() => module.default);
+  });
+}, []);
+  const [driverLocation, setDriverLocation] = useState({
+  latitude: 28.6139,
+  longitude: 77.2090,
+});
+
+useEffect(() => {
+  if (!navigator.geolocation) {
+    console.log("Geolocation is not supported");
+    return;
+  }
+
+  const watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      setDriverLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+    },
+    (error) => {
+      console.log("Location error:", error);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 10000,
+    }
+  );
+
+  return () => navigator.geolocation.clearWatch(watchId);
+}, []);
 
   // 1. Global Language State
-  const [isHindi, setIsHindi] = useState(() => {
-    return localStorage.getItem("bussinn_lang") === "hi";
-  });
+  const [isHindi, setIsHindi] = useState(false);
+
+useEffect(() => {
+  const savedLanguage = localStorage.getItem("bussinn_lang");
+  setIsHindi(savedLanguage === "hi");
+}, []);
 
   const toggleLanguage = () => {
     const newLangState = !isHindi;
@@ -18,32 +58,18 @@ const DriverDashboard = () => {
   };
 
   // 2. Load Driver Route Data & Name directly on initial render (Prevents reload shift)
-  const [routeDetails, setRouteDetails] = useState(() => {
-    const savedConfig = localStorage.getItem("driver_route_config");
-    const registeredName = localStorage.getItem("bussinn_signup_name") || "Driver";
+  const [routeDetails, setRouteDetails] = useState({
+  departure: "Central Station",
+  destination: "North Terminal",
+  stops: [],
+  startTime: "08:00",
+  endTime: "16:00",
+  routeCode: "RTE-42A",
+  driverName: "Driver",
+});
     
-    let parsedConfig = {
-      departure: "Central Station",
-      destination: "North Terminal",
-      stops: [],
-      startTime: "08:00",
-      endTime: "16:00",
-      routeCode: "RTE-42A"
-    };
-
-    if (savedConfig) {
-      try {
-        parsedConfig = JSON.parse(savedConfig);
-      } catch (e) {
-        console.error("Failed to parse route config", e);
-      }
-    }
-
-    return {
-      ...parsedConfig,
-      driverName: registeredName
-    };
-  });
+    
+    
 
   const [timeError, setTimeError] = useState("");
 
@@ -179,6 +205,17 @@ const DriverDashboard = () => {
               </div>
             </div>
           </section>
+
+          {/* Live Bus Map */}
+<section className="info-card live-map-card">
+  {LiveBusMapComponent && (
+    <LiveBusMapComponent
+      latitude={driverLocation.latitude}
+      longitude={driverLocation.longitude}
+      busNumber="Bus"
+    />
+  )}
+</section>
 
           {/* Quick Stats Row */}
           <section className="quick-stats-row">
