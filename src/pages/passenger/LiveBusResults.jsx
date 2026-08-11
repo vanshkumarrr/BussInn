@@ -1,3 +1,5 @@
+import { matchesRoute } from "../../algorithms/routeMatcher";
+
 import { useEffect, useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -13,26 +15,51 @@ const LiveBusResults = () => {
   const searchTo = searchParams?.to || "Mumbai";
 
   useEffect(() => {
-    const load = () => {
-      const allBuses = getBuses();
-      
-      const filteredBuses = allBuses.filter((bus) => {
-        const stops = bus.routeStops || bus.stops || [];
-        if (stops.length === 0) return true;
-        return stops.some(stop => 
-          typeof stop === 'string' 
-            ? stop.toLowerCase().includes(searchTo.toLowerCase()) 
-            : (stop.name || "").toLowerCase().includes(searchTo.toLowerCase())
-        );
+  const load = () => {
+    const allBuses = getBuses();
+
+    console.log(allBuses);
+
+    const filteredBuses = allBuses.filter((bus) => {
+      const stops = bus.routeStops || bus.stops || [];
+
+      if (stops.length === 0) {
+        return false;
+      }
+
+      // Convert string stops into BusStop-like objects if needed
+      const normalizedStops = stops.map((stop, index) => {
+        if (typeof stop === "string") {
+          return {
+            id: String(index),
+            name: stop,
+            latitude: 0,
+            longitude: 0,
+          };
+        }
+
+        return {
+          id: stop.id || String(index),
+          name: stop.name,
+          latitude: stop.latitude || 0,
+          longitude: stop.longitude || 0,
+        };
       });
 
-      setBuses(filteredBuses.length > 0 ? filteredBuses : allBuses);
-    };
+      return matchesRoute(normalizedStops, searchFrom, searchTo);
+    });
 
-    load();
-    window.addEventListener("bussinn:buses", load);
-    return () => window.removeEventListener("bussinn:buses", load);
-  }, [searchTo]);
+    setBuses(filteredBuses);
+  };
+
+  load();
+
+  window.addEventListener("bussinn:buses", load);
+
+  return () => {
+    window.removeEventListener("bussinn:buses", load);
+  };
+}, [searchFrom, searchTo]);
 
   const checkIfDeparted = (startTimeStr) => {
     if (!startTimeStr) return true; 
