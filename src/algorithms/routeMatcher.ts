@@ -1,4 +1,5 @@
 import type { BusStop } from "./types";
+import { isSameStop } from "./searchUtils";
 
 /**
  * Returns true if a bus travels from the given source
@@ -9,12 +10,12 @@ export function matchesRoute(
   from: string,
   to: string
 ): boolean {
-  const fromIndex = stops.findIndex(
-    stop => stop.name.toLowerCase() === from.toLowerCase()
+  const fromIndex = stops.findIndex((stop) =>
+    isSameStop(stop.name, from)
   );
 
-  const toIndex = stops.findIndex(
-    stop => stop.name.toLowerCase() === to.toLowerCase()
+  const toIndex = stops.findIndex((stop) =>
+    isSameStop(stop.name, to)
   );
 
   if (fromIndex === -1 || toIndex === -1) {
