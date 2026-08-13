@@ -249,15 +249,45 @@ const AdminOverview = () => {
             {buses.map((bus) => (
               <div key={bus?.id || Math.random()} className="admin-bus-card">
                 <div className="bus-card-header-row">
-                  <div className="bus-identity">
-                    <div className="small-bus-icon">
-                      <BusIcon />
-                    </div>
-                    <div>
-                      <h3>{bus?.name || `Bus #${bus?.id}`}</h3>
-                      {bus?.operator && <div className="bus-operator">{bus.operator}</div>}
-                    </div>
-                  </div>
+              <div className="bus-identity">
+  <div className="small-bus-icon">
+    <BusIcon />
+  </div>
+
+  <div>
+    <h3>{bus?.name || `Bus #${bus?.id}`}</h3>
+
+    {bus?.operator && (
+      <div className="bus-operator">
+        {bus.operator}
+      </div>
+    )}
+
+    <div className="bus-management-details">
+      {bus?.busNumber && (
+        <span>Bus No: {bus.busNumber}</span>
+      )}
+
+      {bus?.registrationNumber && (
+        <span>
+          Reg: {bus.registrationNumber}
+        </span>
+      )}
+
+      {bus?.busType && (
+        <span>Type: {bus.busType}</span>
+      )}
+
+      {bus?.capacity && (
+        <span>Capacity: {bus.capacity}</span>
+      )}
+
+      {bus?.status && (
+        <span>Status: {bus.status}</span>
+      )}
+    </div>
+  </div>
+</div>
                   <div className="bus-price-tag">₹{bus?.price || 559}</div>
                 </div>
 
