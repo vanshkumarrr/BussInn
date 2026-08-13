@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useState, useEffect, lazy, Suspense } from "react";
+import { useNavigate, ClientOnly } from "@tanstack/react-router";
 import DriverBottomNav from "../../components/DriverBottomNav";
-import "../../styles/DriverLiveTracking.css";
 
+import "../../styles/DriverLiveTracking.css";
+const LiveBusMap = lazy(() => import("../../components/LiveBusMap"));
 const DriverLiveTracking = () => {
   const navigate = useNavigate();
 
@@ -28,6 +29,14 @@ const DriverLiveTracking = () => {
   // Track current active stop index (Backend will drive this later)
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
 
+  // Live GPS location
+const [driverLocation, setDriverLocation] = useState({
+  latitude: 28.6139,
+  longitude: 77.2090
+});
+
+const [gpsStatus, setGpsStatus] = useState("Waiting for GPS...");
+
   useEffect(() => {
     const savedConfig = localStorage.getItem("driver_route_config");
     if (savedConfig) {
@@ -39,15 +48,51 @@ const DriverLiveTracking = () => {
       }
     }
 
-    // TODO: [FRONTEND/BACKEND INTEGRATION]
-    // Initialize Google Maps / Mapbox instance here.
-    // Use navigator.geolocation.watchPosition() to stream coordinates to backend via Socket.IO.
-    // Example:
-    // const watchId = navigator.geolocation.watchPosition((position) => {
-    //   const { latitude, longitude } = position.coords;
-    //   socket.emit("update-driver-location", { latitude, longitude, routeCode: routeInfo.routeCode });
-    // });
-    // return () => navigator.geolocation.clearWatch(watchId);
+    // Start watching driver's live GPS location
+if ("geolocation" in navigator) {
+  setGpsStatus("Getting your location...");
+
+  const watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+
+      setDriverLocation({
+        latitude,
+        longitude
+      });
+
+      setGpsStatus("GPS Active");
+    },
+    (error) => {
+      console.error("GPS Error:", error);
+
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          setGpsStatus("Location permission denied");
+          break;
+        case error.POSITION_UNAVAILABLE:
+          setGpsStatus("Location unavailable");
+          break;
+        case error.TIMEOUT:
+          setGpsStatus("GPS timeout");
+          break;
+        default:
+          setGpsStatus("GPS error");
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 10000
+    }
+  );
+
+  return () => {
+    navigator.geolocation.clearWatch(watchId);
+  };
+} else {
+  setGpsStatus("GPS is not supported by this browser");
+}
   }, []);
 
   const content = {
@@ -103,24 +148,19 @@ const DriverLiveTracking = () => {
         <div className="map-viewport-section">
           <div className="map-overlay-badge">
             <span className="live-pulsing-dot"></span>
-            <span>{routeInfo.routeCode} • Live</span>
+            <span>{routeInfo.routeCode} • {gpsStatus}</span>
           </div>
 
-          {/* 
-            TODO: [MAP INTEGRATION AREA]
-            Replace or embed your real Google Maps / Mapbox component here.
-            If using an image placeholder for now, it scales dynamically inside this viewport.
-          */}
+          
           <div className="map-canvas-placeholder">
-            <div className="map-mock-grid"></div>
-            <div className="bus-marker-pin">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
-              </svg>
-              <div className="marker-pulse"></div>
-            </div>
-            <span className="map-watermark">Interactive Map Container (70% Screen)</span>
-          </div>
+  <ClientOnly fallback={<div>Loading map...</div>}>
+  <LiveBusMap
+    latitude={driverLocation.latitude}
+    longitude={driverLocation.longitude}
+    busNumber={routeInfo.routeCode}
+  />
+</ClientOnly>
+</div>
 
           <div className="map-bottom-sheet-handle">
             <span></span>
