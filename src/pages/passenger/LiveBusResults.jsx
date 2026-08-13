@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import { fetchBuses } from "../../services/busService";
+import { fetchRouteByBus } from "../../services/routeService";
 import "../../styles/LiveBusResults.css";
 
 const LiveBusResults = () => {
@@ -60,6 +61,20 @@ const LiveBusResults = () => {
     window.removeEventListener("bussinn:buses", load);
   };
 }, [searchFrom, searchTo]);
+
+const handleViewRoute = async (bus) => {
+  const route = await fetchRouteByBus(bus.id);
+
+  if (!route) {
+    return;
+  }
+
+  setSelectedBusRoute({
+    ...bus,
+    routeName: route.routeName,
+    evaluatedStops: route.stops,
+  });
+};
 
   const checkIfDeparted = (startTimeStr) => {
     if (!startTimeStr) return true; 
@@ -204,7 +219,7 @@ const LiveBusResults = () => {
                           )}
 
                           <button 
-                            onClick={() => setSelectedBusRoute({ ...bus, evaluatedStops: busStops })}
+                            onClick={() => handleViewRoute(bus)}
                             className="btn-route-action"
                             type="button"
                           >
