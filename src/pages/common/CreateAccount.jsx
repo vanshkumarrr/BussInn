@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import "../../styles/CreateAccount.css";
+import { supabase } from "../../lib/supabase";
 
 const CreateAccount = () => {
   const navigate = useNavigate();
@@ -84,27 +85,70 @@ const CreateAccount = () => {
     setForm({ ...form, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
     if (error) setError(""); // Clear error when typing
   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // Validation
-    if (!form.name.trim() || !form.email.trim() || !form.password) {
-      setError(t.emptyError);
-      return;
-    }
-    if (!isPasswordValid) {
-      setError(t.pwdError);
-      return;
-    }
-    if (!form.terms) {
-      setError(t.termsError);
-      return;
-    }
+  // Validation
+  if (!form.name.trim() || !form.email.trim() || !form.password) {
+    setError(t.emptyError);
+    return;
+  }
 
-    // Navigate to Basic Details page on success
-    navigate({ to: "/basic-details" });
-  };
+  if (!isPasswordValid) {
+    setError(t.pwdError);
+    return;
+  }
+
+  if (!form.terms) {
+    setError(t.termsError);
+    return;
+  }
+  localStorage.removeItem("passenger_name");
+localStorage.removeItem("passenger_phone");
+localStorage.removeItem("passenger_city");
+localStorage.removeItem("signupPhone");
+
+  // Create user in Supabase Auth
+  const { data, error } = await supabase.auth.signUp({
+    email: form.email.trim(),
+    password: form.password,
+    options: {
+      data: {
+        full_name: form.name.trim(),
+      },
+      //  emailRedirectTo: "http://localhost:8080/",
+      emailRedirectTo: "http://localhost:8080/verify-otp",
+    },
+  });
+
+  if (error) {
+    setError(error.message);
+    return;
+  }
+
+  // console.log("Signup successful:", data);
+
+  // // Move to Basic Details after successful signup
+  // navigate({ to: "/basic-details" });
+//   console.log("Signup successful:", data);
+
+// // OTP verification page
+// navigate({
+//   to: "/verify-otp",
+//   search: {
+//     email: form.email.trim(),
+//   },
+// });
+console.log("Signup successful:", data);
+
+// Save email for OTP verification
+localStorage.setItem("signup_email", form.email.trim());
+
+// Go to OTP verification page
+navigate({ to: "/basic-details" });
+};
+
 
   // Helper for rendering criteria icons
   const renderCriteriaIcon = (isMet) => {

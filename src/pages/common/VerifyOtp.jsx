@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import "../../styles/VerifyOtp.css";
+// import { supabase } from "../../lib/supabase";
+
 
 const VerifyOtp = () => {
   const navigate = useNavigate();
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const inputRefs = useRef([]);
-  const [timer, setTimer] = useState(38); // Starting at 38s to match the image
+  const [timer, setTimer] = useState(60); // Starting at 38s to match the image
 
   // Countdown timer effect
   useEffect(() => {
@@ -24,7 +26,7 @@ const VerifyOtp = () => {
     setOtp(newOtp);
 
     // Auto-focus the next input field if a digit was entered
-    if (digit && index < 3) {
+    if (digit && index < 5) {
       inputRefs.current[index + 1].focus();
     }
   };
@@ -38,14 +40,21 @@ const VerifyOtp = () => {
 
   const isOtpComplete = otp.every((digit) => digit !== "");
 
+
+const DEMO_OTP = "123456";
+
 const handleVerify = () => {
-    if (!isOtpComplete) return;
-    
-    // TODO: Verify OTP with backend here
-    
-    // Move directly to the Role Selection page!
-    navigate({ to: "/role-selection" });
-  };
+  if (!isOtpComplete) return;
+
+  const enteredOtp = otp.join("");
+
+  if (enteredOtp !== DEMO_OTP) {
+    alert("Incorrect demo OTP.");
+    return;
+  }
+
+  navigate({ to: "/role-selection" });
+};
   const handleResend = () => {
     if (timer === 0) {
       // TODO: Trigger backend resend OTP logic here
@@ -84,7 +93,7 @@ const handleVerify = () => {
           {/* Text Details */}
           <h2 className="otp-title">Verify OTP</h2>
           <p className="otp-subtitle">
-            We've sent a 4-digit code to your E-Mail.
+            We've sent a 6-digit code to your E-Mail.
           </p>
 
           {/* OTP Input Boxes */}

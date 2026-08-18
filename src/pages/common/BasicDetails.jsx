@@ -16,7 +16,12 @@ const BasicDetails = () => {
     localStorage.setItem("bussinn_lang", newLangState ? "hi" : "en");
   };
 
-  const [form, setForm] = useState({ name: "", phone: "", city: "" });
+  // const [form, setForm] = useState({ name: "", phone: "", city: "" });
+  const [form, setForm] = useState(() => ({
+  name: localStorage.getItem("passenger_name") || "",
+  phone: localStorage.getItem("passenger_phone") || "",
+  city: localStorage.getItem("passenger_city") || "",
+}));
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
 
