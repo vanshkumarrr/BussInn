@@ -1,6 +1,8 @@
 // Local-storage backed data store.
 // TODO: Replace every function here with real backend/database calls later.
 
+import { supabase } from "./supabase";
+
 const BUSES_KEY = "bussinn.buses";
 const AUTH_KEY = "bussinn.auth";
 
@@ -62,18 +64,19 @@ const SEED_BUSES = [
 
 const isBrowser = () => typeof window !== "undefined";
 
-export function getBuses() {
-  if (!isBrowser()) return SEED_BUSES;
-  try {
-    const raw = window.localStorage.getItem(BUSES_KEY);
-    if (!raw) {
-      window.localStorage.setItem(BUSES_KEY, JSON.stringify(SEED_BUSES));
-      return SEED_BUSES;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return SEED_BUSES;
+
+export async function getBuses() {
+  const { data, error } = await supabase
+    .from("buses")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching buses:", error);
+    return [];
   }
+
+  return data || [];
 }
 
 function saveBuses(buses) {
@@ -82,31 +85,88 @@ function saveBuses(buses) {
   window.dispatchEvent(new Event("bussinn:buses"));
 }
 
-export function addBus(bus) {
-  const buses = getBuses();
-  const next = [...buses, { ...bus, id: `bus-${Date.now()}` }];
-  saveBuses(next);
-  return next;
+
+export async function addBus(bus) {
+  const { data, error } = await supabase
+    .from("buses")
+    .insert([
+      {
+        name: bus.name,
+        operator: bus.operator,
+        rating: bus.rating,
+        reviews: 0,
+        confidence: bus.confidence,
+        price: bus.price,
+        old_price: null,
+        departure_time: bus.departTime,
+        arrival_time: bus.arriveTime,
+        live: bus.live,
+        accent: bus.accent,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error adding bus:", error);
+    throw error;
+  }
+
+
+  return data;
 }
 
-export function updateBus(id, patch) {
-  const next = getBuses().map((b) => (b.id === id ? { ...b, ...patch } : b));
-  saveBuses(next);
-  return next;
+export async function updateBus(id, patch) {
+  console.log("UPDATE ID:", id);
+  console.log("UPDATE PATCH:", patch);
+
+  const { data, error } = await supabase
+    .from("buses")
+    .update(patch)
+    .eq("id", id)
+    .select("*");
+
+  console.log("SUPABASE UPDATE DATA:", data);
+  console.log("SUPABASE UPDATE ERROR:", error);
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
-export function deleteBus(id) {
-  const next = getBuses().filter((b) => b.id !== id);
-  saveBuses(next);
-  return next;
-}
+export async function deleteBus(id) {
+  console.log("Deleting bus:", id);
 
-export function getBus(id) {
-  return getBuses().find((b) => b.id === id) || null;
-}
+  const { data, error } = await supabase
+    .from("buses")
+    .delete()
+    .eq("id", id);
 
-export function setBusStops(id, stops) {
-  return updateBus(id, { stops });
+  console.log("DELETE DATA:", data);
+  console.log("DELETE ERROR:", error);
+
+  if (error) {
+    console.error("DELETE FAILED:", error);
+    throw error;
+  }
+
+  return data;
+}
+export async function getBus(id) {
+  const { data, error } = await supabase
+    .from("buses")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching bus:", error);
+    return null;
+  }
+
+  return data;
 }
 
 /* ---------- auth (local only) ---------- */
