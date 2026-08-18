@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
-import { getBuses } from "../../lib/store";
+// import { getBuses } from "../../lib/store";
 import "../../styles/LiveBusResults.css";
+import { supabase } from "../../lib/supabase";
 
 const LiveBusResults = () => {
   const [buses, setBuses] = useState([]);
@@ -11,28 +12,98 @@ const LiveBusResults = () => {
   const searchParams = useSearch({ strict: false });
   const searchFrom = searchParams?.from || "Pune";
   const searchTo = searchParams?.to || "Mumbai";
+useEffect(() => {
+  const loadBuses = async () => {
+    const { data, error } = await supabase
+      .from("buses")
+      .select(`
+        *,
+        live_locations (
+          latitude,
+          longitude,
+          speed,
+          heading,
+          updated_at
+        )
+      `)
+      .eq("live", true);
 
-  useEffect(() => {
-    const load = () => {
-      const allBuses = getBuses();
-      
-      const filteredBuses = allBuses.filter((bus) => {
-        const stops = bus.routeStops || bus.stops || [];
-        if (stops.length === 0) return true;
-        return stops.some(stop => 
-          typeof stop === 'string' 
-            ? stop.toLowerCase().includes(searchTo.toLowerCase()) 
-            : (stop.name || "").toLowerCase().includes(searchTo.toLowerCase())
+    if (error) {
+      console.error("Error fetching buses from Supabase:", error);
+      return;
+    }
+
+    const formattedBuses = (data || []).map((bus) => {
+      const location = bus.live_locations?.[0];
+
+      return {
+        id: bus.id,
+        name: bus.name,
+        operator: bus.operator,
+        rating: bus.rating,
+        reviewsCount: bus.reviews,
+        confidence: `${bus.confidence}%`,
+        price: bus.price,
+        estimatedPrice: bus.price,
+        originalPrice: bus.old_price,
+        startTime: bus.departure_time,
+        arrivalTime: bus.arrival_time,
+        live: bus.live,
+
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+        speed: location?.speed,
+        heading: location?.heading,
+        updatedAt: location?.updated_at,
+
+        stops: [],
+      };
+    });
+
+    setBuses(formattedBuses);
+  };
+
+  loadBuses();
+
+  // REALTIME SUBSCRIPTION
+  const channel = supabase
+    .channel("live-bus-locations")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "live_locations",
+      },
+      (payload) => {
+        console.log("LIVE LOCATION CHANGED:", payload);
+
+        setBuses((currentBuses) =>
+          currentBuses.map((bus) => {
+            if (bus.id !== payload.new.bus_id) {
+              return bus;
+            }
+
+            return {
+              ...bus,
+              latitude: payload.new.latitude,
+              longitude: payload.new.longitude,
+              speed: payload.new.speed,
+              heading: payload.new.heading,
+              updatedAt: payload.new.updated_at,
+            };
+          })
         );
-      });
+      }
+    )
+    .subscribe((status) => {
+      console.log("Live Bus Realtime Status:", status);
+    });
 
-      setBuses(filteredBuses.length > 0 ? filteredBuses : allBuses);
-    };
-
-    load();
-    window.addEventListener("bussinn:buses", load);
-    return () => window.removeEventListener("bussinn:buses", load);
-  }, [searchTo]);
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   const checkIfDeparted = (startTimeStr) => {
     if (!startTimeStr) return true; 

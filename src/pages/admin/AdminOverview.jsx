@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import AdminBottomNav from "../../components/AdminBottomNav";
-import { getBuses, deleteBus } from "../../lib/store";
+import { getBuses, deleteBus, updateBus } from "../../lib/store";
 import "../../styles/AdminOverview.css";
 
 const SAMPLE_ADMIN_BUSES = [
@@ -123,56 +123,77 @@ const AdminOverview = () => {
   const [buses, setBuses] = useState([]);
   const [editingBus, setEditingBus] = useState(null);
   const [editingRoute, setEditingRoute] = useState(null);
-
   useEffect(() => {
+  const loadBuses = async () => {
     try {
-      const existingBuses = getBuses();
-      if (!existingBuses || existingBuses.length === 0) {
-        localStorage.setItem("bussinn_buses", JSON.stringify(SAMPLE_ADMIN_BUSES));
-        setBuses(SAMPLE_ADMIN_BUSES);
+      const stored = await getBuses();
+
+      if (Array.isArray(stored) && stored.length > 0) {
+        setBuses(stored);
       } else {
-        setBuses(existingBuses);
+        setBuses(SAMPLE_ADMIN_BUSES);
       }
     } catch (e) {
+      console.error("Error loading buses:", e);
       setBuses(SAMPLE_ADMIN_BUSES);
     }
-
-    const loadBuses = () => {
-      try {
-        const stored = getBuses();
-        setBuses(stored && stored.length > 0 ? stored : SAMPLE_ADMIN_BUSES);
-      } catch (e) {
-        setBuses([]);
-      }
-    };
-
-    window.addEventListener("bussinn:buses", loadBuses);
-    window.addEventListener("storage", loadBuses);
-
-    return () => {
-      window.removeEventListener("bussinn:buses", loadBuses);
-      window.removeEventListener("storage", loadBuses);
-    };
-  }, []);
-
-  const handleDelete = (id) => {
-    try {
-      const updated = deleteBus(id);
-      setBuses(updated || []);
-      window.dispatchEvent(new Event("bussinn:buses"));
-    } catch (e) {
-      setBuses([]);
-    }
   };
 
-  const handleSaveBus = (e) => {
-    e.preventDefault();
-    const updatedBuses = buses.map((b) => (b.id === editingBus.id ? editingBus : b));
+  loadBuses();
+
+  window.addEventListener("bussinn:buses", loadBuses);
+  window.addEventListener("storage", loadBuses);
+
+  return () => {
+    window.removeEventListener("bussinn:buses", loadBuses);
+    window.removeEventListener("storage", loadBuses);
+  };
+}, []);
+ const handleDelete = async (id) => {
+  console.log("DELETE BUTTON CLICKED");
+  console.log("Bus ID:", id);
+
+  try {
+    const result = await deleteBus(id);
+
+    console.log("DELETE RESULT:", result);
+
+    const updated = await getBuses();
+
+    console.log("BUSES AFTER DELETE:", updated);
+
+    setBuses(updated);
+  } catch (error) {
+    console.error("DELETE ERROR:", error);
+  }
+};
+
+  const handleSaveBus = async (e) => {
+  e.preventDefault();
+
+  try {
+    const updatedBus = await updateBus(editingBus.id, {
+      name: editingBus.name,
+      operator: editingBus.operator,
+      rating: editingBus.rating,
+      reviews: editingBus.reviewsCount,
+      confidence: editingBus.confidence,
+      price: editingBus.price,
+      old_price: editingBus.originalPrice,
+      departure_time: editingBus.startTime,
+      arrival_time: editingBus.arrivalTime,
+    });
+
+    console.log("BUS UPDATED SUCCESSFULLY:", updatedBus);
+
+    const updatedBuses = await getBuses();
     setBuses(updatedBuses);
-    localStorage.setItem("bussinn_buses", JSON.stringify(updatedBuses));
-    window.dispatchEvent(new Event("bussinn:buses"));
+
     setEditingBus(null);
-  };
+  } catch (error) {
+    console.error("ERROR UPDATING BUS:", error);
+  }
+};
 
   const handleSaveRoute = (e) => {
     e.preventDefault();
@@ -265,7 +286,7 @@ const AdminOverview = () => {
                   <div className="route-endpoint">
                     <span className="endpoint-label">DEPARTURE</span>
                     <div className="endpoint-city">{bus?.departStop || "Swargate"}</div>
-                    <div className="endpoint-time">{bus?.startTime || "22:00"}</div>
+                    <div className="endpoint-time">{bus?.departure_time || "22:00"}</div>
                   </div>
 
                   <div className="route-arrow-icon">
@@ -275,7 +296,7 @@ const AdminOverview = () => {
                   <div className="route-endpoint right">
                     <span className="endpoint-label">ARRIVAL</span>
                     <div className="endpoint-city">{bus?.arriveStop || "Andheri East"}</div>
-                    <div className="endpoint-time">{bus?.arrivalTime || "05:15"}</div>
+                    <div className="endpoint-time">{bus?.arrival_time || "05:15"}</div>
                   </div>
                 </div>
 

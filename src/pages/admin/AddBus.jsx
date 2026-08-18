@@ -82,7 +82,7 @@ const AddBus = () => {
     form.arriveTime,
   ]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.departStop.trim() || !form.arriveStop.trim()) {
       setError("Bus name, boarding point and drop point are required.");
@@ -106,7 +106,7 @@ const AddBus = () => {
     // Until then, addBus() writes straight into localStorage under the
     // same "bussinn_buses" key that AdminOverview reads from.
     // -----------------------------------------------------------------
-    addBus({
+await  addBus({
       ...form,
       rating: Number(form.rating) || 0,
       confidence: Number(form.confidence) || 0,
