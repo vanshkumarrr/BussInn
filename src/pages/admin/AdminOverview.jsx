@@ -13,13 +13,7 @@ const SAMPLE_ADMIN_BUSES = [
     startTime: "22:00",
     arrivalTime: "05:15",
     duration: "7h 15m",
-    eta: "12 mins",
     price: 559,
-    originalPrice: 699,
-    rating: 4.8,
-    reviewsCount: 209,
-    confidence: "95%",
-    distanceAway: "1.4 km away",
     stops: [
       { name: "Swargate", time: "22:00" },
       { name: "Katraj", time: "22:40" },
@@ -35,13 +29,7 @@ const SAMPLE_ADMIN_BUSES = [
     startTime: "23:15",
     arrivalTime: "06:00",
     duration: "6h 45m",
-    eta: "45 mins",
     price: 649,
-    originalPrice: 799,
-    rating: 4.6,
-    reviewsCount: 128,
-    confidence: "65%",
-    distanceAway: "5.6 km away",
     stops: [
       { name: "Katraj", time: "23:15" },
       { name: "Sion", time: "06:00" }
@@ -123,77 +111,94 @@ const AdminOverview = () => {
   const [buses, setBuses] = useState([]);
   const [editingBus, setEditingBus] = useState(null);
   const [editingRoute, setEditingRoute] = useState(null);
-  useEffect(() => {
-  const loadBuses = async () => {
-    try {
-      const stored = await getBuses();
 
-      if (Array.isArray(stored) && stored.length > 0) {
-        setBuses(stored);
-      } else {
+  useEffect(() => {
+    const loadBuses = async () => {
+      try {
+        const stored = await getBuses();
+        if (Array.isArray(stored) && stored.length > 0) {
+          setBuses(stored);
+        } else {
+          setBuses(SAMPLE_ADMIN_BUSES);
+        }
+      } catch (e) {
+        console.error("Error loading buses:", e);
         setBuses(SAMPLE_ADMIN_BUSES);
       }
-    } catch (e) {
-      console.error("Error loading buses:", e);
-      setBuses(SAMPLE_ADMIN_BUSES);
+    };
+
+    loadBuses();
+
+    window.addEventListener("bussinn:buses", loadBuses);
+    window.addEventListener("storage", loadBuses);
+
+    return () => {
+      window.removeEventListener("bussinn:buses", loadBuses);
+      window.removeEventListener("storage", loadBuses);
+    };
+  }, []);
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteBus(id);
+      const updated = await getBuses();
+      setBuses(updated);
+    } catch (error) {
+      console.error("DELETE ERROR:", error);
     }
   };
 
-  loadBuses();
+  const calculateDuration = (depart, arrive) => {
+    if (!depart || !arrive) return "N/A";
+    try {
+      const [depH, depM] = depart.split(":").map(Number);
+      const [arrH, arrM] = arrive.split(":").map(Number);
+      
+      let depTotalMins = depH * 60 + depM;
+      let arrTotalMins = arrH * 60 + arrM;
 
-  window.addEventListener("bussinn:buses", loadBuses);
-  window.addEventListener("storage", loadBuses);
+      if (arrTotalMins < depTotalMins) {
+        arrTotalMins += 24 * 60;
+      }
 
-  return () => {
-    window.removeEventListener("bussinn:buses", loadBuses);
-    window.removeEventListener("storage", loadBuses);
+      const diffMins = arrTotalMins - depTotalMins;
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+
+      if (hours === 0) return `${mins}m`;
+      if (mins === 0) return `${hours}h`;
+      return `${hours}h ${mins}m`;
+    } catch {
+      return "N/A";
+    }
   };
-}, []);
- const handleDelete = async (id) => {
-  console.log("DELETE BUTTON CLICKED");
-  console.log("Bus ID:", id);
-
-  try {
-    const result = await deleteBus(id);
-
-    console.log("DELETE RESULT:", result);
-
-    const updated = await getBuses();
-
-    console.log("BUSES AFTER DELETE:", updated);
-
-    setBuses(updated);
-  } catch (error) {
-    console.error("DELETE ERROR:", error);
-  }
-};
 
   const handleSaveBus = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const updatedBus = await updateBus(editingBus.id, {
-      name: editingBus.name,
-      operator: editingBus.operator,
-      rating: editingBus.rating,
-      reviews: editingBus.reviewsCount,
-      confidence: editingBus.confidence,
-      price: editingBus.price,
-      old_price: editingBus.originalPrice,
-      departure_time: editingBus.startTime,
-      arrival_time: editingBus.arrivalTime,
-    });
+    try {
+      const calculatedDuration = calculateDuration(editingBus.startTime, editingBus.arrivalTime);
 
-    console.log("BUS UPDATED SUCCESSFULLY:", updatedBus);
+      const updatedBus = await updateBus(editingBus.id, {
+        name: editingBus.name,
+        operator: editingBus.operator,
+        departStop: editingBus.departStop,
+        arriveStop: editingBus.arriveStop,
+        departure_time: editingBus.startTime,
+        arrival_time: editingBus.arrivalTime,
+        duration: calculatedDuration,
+        price: Number(editingBus.price) || 0,
+      });
 
-    const updatedBuses = await getBuses();
-    setBuses(updatedBuses);
+      console.log("BUS UPDATED SUCCESSFULLY:", updatedBus);
 
-    setEditingBus(null);
-  } catch (error) {
-    console.error("ERROR UPDATING BUS:", error);
-  }
-};
+      const updatedBuses = await getBuses();
+      setBuses(updatedBuses);
+      setEditingBus(null);
+    } catch (error) {
+      console.error("ERROR UPDATING BUS:", error);
+    }
+  };
 
   const handleSaveRoute = (e) => {
     e.preventDefault();
@@ -209,7 +214,7 @@ const AdminOverview = () => {
   return (
     <div className="admin-choice-page">
       <div className="app-content admin-overview-layout">
-        {/* Top Header Card — BussInn brand mark */}
+        {/* Top Header Card */}
         <div className="admin-topbar-card">
           <div className="admin-brand-group">
             <BusIcon className="admin-logo-icon" />
@@ -230,10 +235,7 @@ const AdminOverview = () => {
               fontWeight: "650",
               cursor: "pointer",
               fontSize: "14px",
-              transition: "background-color 0.2s"
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#fecaca"}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#fee2e2"}
           >
             Log Out
           </button>
@@ -242,18 +244,14 @@ const AdminOverview = () => {
         {/* Statistics Grid Cards */}
         <div className="stat-grid-cards">
           <div className="stat-box-card">
-            <div className="stat-box-icon">
-              <FleetIcon />
-            </div>
+            <div className="stat-box-icon"><FleetIcon /></div>
             <div className="stat-box-text">
               <strong>{buses?.length || 0}</strong>
               <span>Buses Listed</span>
             </div>
           </div>
           <div className="stat-box-card">
-            <div className="stat-box-icon">
-              <PinIcon />
-            </div>
+            <div className="stat-box-icon"><PinIcon /></div>
             <div className="stat-box-text">
               <strong>{totalStops}</strong>
               <span>Route Stops</span>
@@ -271,9 +269,7 @@ const AdminOverview = () => {
               <div key={bus?.id || Math.random()} className="admin-bus-card">
                 <div className="bus-card-header-row">
                   <div className="bus-identity">
-                    <div className="small-bus-icon">
-                      <BusIcon />
-                    </div>
+                    <div className="small-bus-icon"><BusIcon /></div>
                     <div>
                       <h3>{bus?.name || `Bus #${bus?.id}`}</h3>
                       {bus?.operator && <div className="bus-operator">{bus.operator}</div>}
@@ -289,9 +285,7 @@ const AdminOverview = () => {
                     <div className="endpoint-time">{bus?.departure_time || "22:00"}</div>
                   </div>
 
-                  <div className="route-arrow-icon">
-                    <span>➔</span>
-                  </div>
+                  <div className="route-arrow-icon"><span>➔</span></div>
 
                   <div className="route-endpoint right">
                     <span className="endpoint-label">ARRIVAL</span>
@@ -306,24 +300,21 @@ const AdminOverview = () => {
                     className="btn-admin-action outline"
                     type="button"
                   >
-                    <RouteIcon />
-                    Edit Route
+                    <RouteIcon /> Edit Route
                   </button>
                   <button
                     onClick={() => setEditingBus(JSON.parse(JSON.stringify(bus)))}
                     className="btn-admin-action primary"
                     type="button"
                   >
-                    <EditIcon />
-                    Edit Bus
+                    <EditIcon /> Edit Bus
                   </button>
                   <button
                     onClick={() => handleDelete(bus?.id)}
                     className="btn-admin-action danger"
                     type="button"
                   >
-                    <TrashIcon />
-                    Delete
+                    <TrashIcon /> Delete
                   </button>
                 </div>
               </div>
@@ -338,7 +329,7 @@ const AdminOverview = () => {
               <h3>Edit Bus Listing</h3>
               <form onSubmit={handleSaveBus} className="admin-form-grid">
                 <div className="form-group">
-                  <label>Bus name / operator</label>
+                  <label>Bus name</label>
                   <input
                     type="text"
                     value={editingBus.name || ""}
@@ -347,7 +338,7 @@ const AdminOverview = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Bus type</label>
+                  <label>Bus type / operator</label>
                   <input
                     type="text"
                     value={editingBus.operator || ""}
@@ -356,18 +347,18 @@ const AdminOverview = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Departure time</label>
+                  <label>Departure time (24h)</label>
                   <input
-                    type="text"
+                    type="time"
                     value={editingBus.startTime || ""}
                     onChange={(e) => setEditingBus({ ...editingBus, startTime: e.target.value })}
                     required
                   />
                 </div>
                 <div className="form-group">
-                  <label>Arrival time</label>
+                  <label>Arrival time (24h)</label>
                   <input
-                    type="text"
+                    type="time"
                     value={editingBus.arrivalTime || ""}
                     onChange={(e) => setEditingBus({ ...editingBus, arrivalTime: e.target.value })}
                     required
@@ -392,69 +383,12 @@ const AdminOverview = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Duration</label>
-                  <input
-                    type="text"
-                    value={editingBus.duration || ""}
-                    onChange={(e) => setEditingBus({ ...editingBus, duration: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>ETA</label>
-                  <input
-                    type="text"
-                    value={editingBus.eta || ""}
-                    onChange={(e) => setEditingBus({ ...editingBus, eta: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
                   <label>Fare (₹)</label>
                   <input
                     type="number"
                     value={editingBus.price || ""}
                     onChange={(e) => setEditingBus({ ...editingBus, price: Number(e.target.value) })}
                     required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Old fare (₹)</label>
-                  <input
-                    type="number"
-                    value={editingBus.originalPrice || ""}
-                    onChange={(e) => setEditingBus({ ...editingBus, originalPrice: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Rating</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={editingBus.rating || ""}
-                    onChange={(e) => setEditingBus({ ...editingBus, rating: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Reviews count</label>
-                  <input
-                    type="number"
-                    value={editingBus.reviewsCount || ""}
-                    onChange={(e) => setEditingBus({ ...editingBus, reviewsCount: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Confidence %</label>
-                  <input
-                    type="text"
-                    value={editingBus.confidence || ""}
-                    onChange={(e) => setEditingBus({ ...editingBus, confidence: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Distance away</label>
-                  <input
-                    type="text"
-                    value={editingBus.distanceAway || ""}
-                    onChange={(e) => setEditingBus({ ...editingBus, distanceAway: e.target.value })}
                   />
                 </div>
 
@@ -495,7 +429,7 @@ const AdminOverview = () => {
                   <label style={{ fontWeight: "700", marginTop: "8px", display: "block" }}>
                     Route Stops Sequence
                   </label>
-                  {editingRoute.stops.map((stop, idx) => (
+                  {editingRoute.stops?.map((stop, idx) => (
                     <div key={idx} className="stop-input-row">
                       <input
                         type="text"
@@ -509,15 +443,14 @@ const AdminOverview = () => {
                         required
                       />
                       <input
-                        type="text"
+                        type="time"
                         value={stop.time}
                         onChange={(e) => {
                           const newStops = [...editingRoute.stops];
                           newStops[idx].time = e.target.value;
                           setEditingRoute({ ...editingRoute, stops: newStops });
                         }}
-                        placeholder="Time"
-                        style={{ width: "90px" }}
+                        style={{ width: "110px" }}
                         required
                       />
                       <button
@@ -538,7 +471,7 @@ const AdminOverview = () => {
                     onClick={() => {
                       setEditingRoute({
                         ...editingRoute,
-                        stops: [...editingRoute.stops, { name: "", time: "00:00" }]
+                        stops: [...(editingRoute.stops || []), { name: "", time: "00:00" }]
                       });
                     }}
                     className="btn-add-stop"
