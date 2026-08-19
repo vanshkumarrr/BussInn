@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AdminBottomNav from "../../components/AdminBottomNav";
 import { getBuses, deleteBus, updateBus } from "../../lib/store";
 import "../../styles/AdminOverview.css";
+import { useNavigate } from "@tanstack/react-router";
 
 const SAMPLE_ADMIN_BUSES = [
   {
@@ -108,14 +109,17 @@ const PinIcon = ({ className }) => (
 );
 
 const AdminOverview = () => {
+  const navigate = useNavigate();
   const [buses, setBuses] = useState([]);
   const [editingBus, setEditingBus] = useState(null);
-  const [editingRoute, setEditingRoute] = useState(null);
+
 
   useEffect(() => {
+
     const loadBuses = async () => {
       try {
         const stored = await getBuses();
+
         if (Array.isArray(stored) && stored.length > 0) {
           setBuses(stored);
         } else {
@@ -139,9 +143,18 @@ const AdminOverview = () => {
   }, []);
 
   const handleDelete = async (id) => {
+    console.log("DELETE BUTTON CLICKED");
+    console.log("Bus ID:", id);
+
     try {
-      await deleteBus(id);
+      const result = await deleteBus(id);
+
+      console.log("DELETE RESULT:", result);
+
       const updated = await getBuses();
+
+      console.log("BUSES AFTER DELETE:", updated);
+
       setBuses(updated);
     } catch (error) {
       console.error("DELETE ERROR:", error);
@@ -150,10 +163,11 @@ const AdminOverview = () => {
 
   const calculateDuration = (depart, arrive) => {
     if (!depart || !arrive) return "N/A";
+
     try {
       const [depH, depM] = depart.split(":").map(Number);
       const [arrH, arrM] = arrive.split(":").map(Number);
-      
+
       let depTotalMins = depH * 60 + depM;
       let arrTotalMins = arrH * 60 + arrM;
 
@@ -167,6 +181,7 @@ const AdminOverview = () => {
 
       if (hours === 0) return `${mins}m`;
       if (mins === 0) return `${hours}h`;
+
       return `${hours}h ${mins}m`;
     } catch {
       return "N/A";
@@ -177,37 +192,49 @@ const AdminOverview = () => {
     e.preventDefault();
 
     try {
-      const calculatedDuration = calculateDuration(editingBus.startTime, editingBus.arrivalTime);
+      const calculatedDuration = calculateDuration(
+        editingBus.startTime,
+        editingBus.arrivalTime
+      );
 
-      const updatedBus = await updateBus(editingBus.id, {
-        name: editingBus.name,
-        operator: editingBus.operator,
-        departStop: editingBus.departStop,
-        arriveStop: editingBus.arriveStop,
-        departure_time: editingBus.startTime,
-        arrival_time: editingBus.arrivalTime,
-        duration: calculatedDuration,
-        price: Number(editingBus.price) || 0,
-      });
+      const updatedBus = await updateBus(
+        editingBus.id,
+        {
+          name: editingBus.name,
+          operator: editingBus.operator,
+          rating: Number(editingBus.rating) || 0,
+          reviews: Number(editingBus.reviewsCount) || 0,
+          confidence:
+            Number(editingBus.confidence) || 0,
+          price: Number(editingBus.price) || 0,
+          old_price:
+            Number(editingBus.originalPrice) || null,
+          departure_time:
+            editingBus.startTime,
+          arrival_time:
+            editingBus.arrivalTime,
+          duration: calculatedDuration,
+        }
+      );
 
-      console.log("BUS UPDATED SUCCESSFULLY:", updatedBus);
+      console.log(
+        "BUS UPDATED SUCCESSFULLY:",
+        updatedBus
+      );
 
       const updatedBuses = await getBuses();
       setBuses(updatedBuses);
+
       setEditingBus(null);
     } catch (error) {
-      console.error("ERROR UPDATING BUS:", error);
+      console.error(
+        "ERROR UPDATING BUS:",
+        error
+      );
     }
   };
 
-  const handleSaveRoute = (e) => {
-    e.preventDefault();
-    const updatedBuses = buses.map((b) => (b.id === editingRoute.id ? editingRoute : b));
-    setBuses(updatedBuses);
-    localStorage.setItem("bussinn_buses", JSON.stringify(updatedBuses));
-    window.dispatchEvent(new Event("bussinn:buses"));
-    setEditingRoute(null);
-  };
+
 
   const totalStops = Array.isArray(buses) ? buses.reduce((n, b) => n + (b?.stops?.length || 0), 0) : 0;
 
@@ -223,8 +250,8 @@ const AdminOverview = () => {
               <p>Your city, connected.</p>
             </div>
           </div>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => { window.location.href = "/"; }}
             style={{
               backgroundColor: "#fee2e2",
@@ -326,12 +353,17 @@ const AdminOverview = () => {
 
                 <div className="bus-card-actions-row">
                   <button
-                    onClick={() => setEditingRoute(JSON.parse(JSON.stringify(bus)))}
-                    className="btn-admin-action outline"
-                    type="button"
-                  >
-                    <RouteIcon /> Edit Route
-                  </button>
+                onClick={() =>
+                navigate({
+                to: "/admin/route/$busId",
+                params: { busId: String(bus.id) },
+                })
+                }
+                className="btn-admin-action outline"
+                type="button"
+                >
+                <RouteIcon /> Edit Route
+                </button>
                   <button
                     onClick={() => setEditingBus(JSON.parse(JSON.stringify(bus)))}
                     className="btn-admin-action primary"
@@ -435,103 +467,7 @@ const AdminOverview = () => {
           </div>
         )}
 
-        {/* EDIT ROUTE MODAL */}
-        {editingRoute && (
-          <div className="admin-modal-overlay">
-            <div className="admin-modal-card">
-              <h3>Edit Route Sequence</h3>
-              <p className="modal-subtitle">
-                Modify starting point, boarding point, and intermediate stops for {editingRoute.name}
-              </p>
 
-              <form onSubmit={handleSaveRoute} className="admin-form-grid">
-                <div className="form-group full-width">
-                  <label>Starting / Boarding Point</label>
-                  <input
-                    type="text"
-                    value={editingRoute.departStop || ""}
-                    onChange={(e) => setEditingRoute({ ...editingRoute, departStop: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group full-width">
-                  <label style={{ fontWeight: "700", marginTop: "8px", display: "block" }}>
-                    Route Stops Sequence
-                  </label>
-                  {editingRoute.stops?.map((stop, idx) => (
-                    <div key={idx} className="stop-input-row">
-                      <input
-                        type="text"
-                        value={stop.name}
-                        onChange={(e) => {
-                          const newStops = [...editingRoute.stops];
-                          newStops[idx].name = e.target.value;
-                          setEditingRoute({ ...editingRoute, stops: newStops });
-                        }}
-                        placeholder="Stop name"
-                        required
-                      />
-                      <input
-                        type="time"
-                        value={stop.time}
-                        onChange={(e) => {
-                          const newStops = [...editingRoute.stops];
-                          newStops[idx].time = e.target.value;
-                          setEditingRoute({ ...editingRoute, stops: newStops });
-                        }}
-                        style={{ width: "110px" }}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newStops = editingRoute.stops.filter((_, i) => i !== idx);
-                          setEditingRoute({ ...editingRoute, stops: newStops });
-                        }}
-                        className="btn-delete-stop"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingRoute({
-                        ...editingRoute,
-                        stops: [...(editingRoute.stops || []), { name: "", time: "00:00" }]
-                      });
-                    }}
-                    className="btn-add-stop"
-                  >
-                    + Add Stop
-                  </button>
-                </div>
-
-                <div className="form-group full-width">
-                  <label>Destination / Drop Point</label>
-                  <input
-                    type="text"
-                    value={editingRoute.arriveStop || ""}
-                    onChange={(e) => setEditingRoute({ ...editingRoute, arriveStop: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="modal-buttons-row">
-                  <button type="submit" className="btn-submit-modal">
-                    Save Route
-                  </button>
-                  <button type="button" onClick={() => setEditingRoute(null)} className="btn-cancel-modal">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         <AdminBottomNav />
       </div>

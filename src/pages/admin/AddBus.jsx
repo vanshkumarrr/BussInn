@@ -94,19 +94,7 @@ const AddBus = () => {
     }
     setError("");
 
-    // -----------------------------------------------------------------
-    // BACKEND TODO: once a real API exists, POST here instead:
-    //
-    //   await fetch("/api/buses", {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json" },
-    //     body: JSON.stringify(payload),
-    //   });
-    //
-    // Until then, addBus() writes straight into localStorage under the
-    // same "bussinn_buses" key that AdminOverview reads from.
-    // -----------------------------------------------------------------
-await  addBus({
+        await addBus({
       ...form,
       rating: Number(form.rating) || 0,
       confidence: Number(form.confidence) || 0,

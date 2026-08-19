@@ -12,15 +12,30 @@ const AddRoute = () => {
   const [searchTo, setSearchTo] = useState("");
 
   useEffect(() => {
-    const load = () => setBuses(getBuses() || []);
+  const load = async () => {
+    try {
+      const data = await getBuses();
+      setBuses(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error loading buses:", error);
+      setBuses([]);
+    }
+  };
+
+  load();
+
+  const handleUpdate = () => {
     load();
-    window.addEventListener("bussinn:buses", load);
-    window.addEventListener("storage", load);
-    return () => {
-      window.removeEventListener("bussinn:buses", load);
-      window.removeEventListener("storage", load);
-    };
-  }, []);
+  };
+
+  window.addEventListener("bussinn:buses", handleUpdate);
+  window.addEventListener("storage", handleUpdate);
+
+  return () => {
+    window.removeEventListener("bussinn:buses", handleUpdate);
+    window.removeEventListener("storage", handleUpdate);
+  };
+}, []);
 
   // Filter buses based on selected boarding and drop points
   const filteredBuses = buses.filter((bus) => {

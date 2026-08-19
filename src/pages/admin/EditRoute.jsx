@@ -2,58 +2,209 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { Trash2, Plus } from "lucide-react";
 import AdminBottomNav from "../../components/AdminBottomNav";
-import { getBus, setBusStops } from "../../lib/store";
+import { supabase } from "../../lib/supabase";
+import {
+  fetchRouteByBus,
+  saveRouteStops,
+} from "../../services/routeService";
 import "../../styles/Admin.css";
 
 // Admin — edit the stops of a bus route.
 const EditRoute = () => {
   const { busId } = useParams({ from: "/admin/route/$busId" });
   const navigate = useNavigate();
+
   const [bus, setBus] = useState(null);
+  const [route, setRoute] = useState(null);
   const [stops, setStops] = useState([]);
-  const [saved, setSaved] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const found = getBus(busId);
-    setBus(found);
-    setStops(found?.stops || []);
+    const loadRoute = async () => {
+      setLoading(true);
+      setError("");
+
+      // Get the bus information from Supabase.
+      const { data: busData, error: busError } = await supabase
+        .from("buses")
+        .select("id, name, route_id")
+        .eq("id", busId)
+        .single();
+
+      if (busError || !busData) {
+        console.error("Error loading bus:", busError);
+        setError("Unable to find this bus.");
+        setLoading(false);
+        return;
+      }
+
+      setBus(busData);
+
+      // Get the route belonging to this bus.
+      const routeData = await fetchRouteByBus(busId);
+
+      if (!routeData) {
+        setError("This bus does not have a route assigned.");
+        setLoading(false);
+        return;
+      }
+
+      setRoute(routeData);
+      setStops(routeData.stops || []);
+
+      setLoading(false);
+    };
+
+    loadRoute();
   }, [busId]);
 
-  if (!bus) {
+  const updateStop = (index, key, value) => {
+    setStops((currentStops) =>
+      currentStops.map((stop, i) =>
+        i === index
+          ? {
+              ...stop,
+              [key]: value,
+            }
+          : stop
+      )
+    );
+  };
+
+  const addStop = () => {
+    setStops((currentStops) => [
+      ...currentStops,
+      {
+        id: null,
+        name: "",
+        latitude: 0,
+        longitude: 0,
+        arrivalTime: "",
+        departureTime: "",
+        time: "",
+      },
+    ]);
+  };
+
+  const removeStop = (index) => {
+    setStops((currentStops) =>
+      currentStops.filter((_, i) => i !== index)
+    );
+  };
+
+  const handleSave = async () => {
+    if (!route?.id) {
+      setError("Route information is missing.");
+      return;
+    }
+
+    const validStops = stops.filter(
+      (stop) => stop.name && stop.name.trim()
+    );
+
+    if (validStops.length === 0) {
+      setError("Add at least one stop before saving.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+
+    try {
+      await saveRouteStops(route.id, validStops);
+
+      navigate({ to: "/admin/overview" });
+    } catch (err) {
+      console.error("Error saving route:", err);
+      setError(
+        err?.message || "Unable to save the route."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
     return (
       <div className="page wide">
-        <p className="empty">This bus no longer exists.</p>
+        <p className="empty">Loading route...</p>
         <AdminBottomNav />
       </div>
     );
   }
 
-  const updateStop = (i, key, value) =>
-    setStops(stops.map((s, idx) => (idx === i ? { ...s, [key]: value } : s)));
+  if (!bus || !route) {
+    return (
+      <div className="page wide">
+        <p className="empty">
+          {error || "This route could not be loaded."}
+        </p>
+
+        <AdminBottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="page wide">
-      <h1 className="header">Route · {bus.name}</h1>
+      <h1 className="header">
+        Route · {bus.name}
+      </h1>
+
       <div className="container">
-        {stops.map((stop, i) => (
-          <div className="stop-row" key={i}>
+        {error ? (
+          <p className="helper-text">
+            {error}
+          </p>
+        ) : null}
+
+        {stops.map((stop, index) => (
+          <div className="stop-row" key={index}>
             <input
               className="field"
               placeholder="Stop name"
-              value={stop.name}
-              onChange={(e) => updateStop(i, "name", e.target.value)}
+              value={stop.name || ""}
+              onChange={(e) =>
+                updateStop(
+                  index,
+                  "name",
+                  e.target.value
+                )
+              }
             />
+
             <input
               className="field"
               placeholder="Time"
-              value={stop.time}
-              onChange={(e) => updateStop(i, "time", e.target.value)}
+              value={
+                stop.departureTime ||
+                stop.arrivalTime ||
+                stop.time ||
+                ""
+              }
+              onChange={(e) => {
+                updateStop(
+                  index,
+                  "time",
+                  e.target.value
+                );
+
+                updateStop(
+                  index,
+                  "departureTime",
+                  e.target.value
+                );
+              }}
             />
+
             <button
               type="button"
               className="icon-btn"
               aria-label="Remove stop"
-              onClick={() => setStops(stops.filter((_, idx) => idx !== i))}
+              onClick={() => removeStop(index)}
             >
               <Trash2 size={16} />
             </button>
@@ -63,23 +214,21 @@ const EditRoute = () => {
         <button
           type="button"
           className="content ghost"
-          onClick={() => setStops([...stops, { name: "", time: "" }])}
+          onClick={addStop}
+          disabled={saving}
         >
-          <Plus size={14} /> Add stop
+          <Plus size={14} />
+          Add stop
         </button>
 
         <button
           type="button"
           className="content"
-          onClick={() => {
-            setBusStops(bus.id, stops.filter((s) => s.name.trim()));
-            setSaved(true);
-            navigate({ to: "/admin/overview" });
-          }}
+          onClick={handleSave}
+          disabled={saving}
         >
-          Save route
+          {saving ? "Saving..." : "Save route"}
         </button>
-        {saved ? <p className="helper-text">Route saved.</p> : null}
       </div>
 
       <AdminBottomNav />
