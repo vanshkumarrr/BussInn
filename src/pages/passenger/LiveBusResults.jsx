@@ -6,6 +6,7 @@ import PassengerBottomNav from "../../components/PassengerBottomNav";
 import { fetchBuses } from "../../services/busService";
 import { fetchRouteByBus } from "../../services/routeService";
 import "../../styles/LiveBusResults.css";
+import { supabase } from "../../lib/supabase";
 
 const LiveBusResults = () => {
   const [buses, setBuses] = useState([]);
@@ -14,51 +15,109 @@ const LiveBusResults = () => {
   const searchParams = useSearch({ strict: false });
   const searchFrom = searchParams?.from || "Pune";
   const searchTo = searchParams?.to || "Mumbai";
+  const searchDate = searchParams?.date || new Date().toISOString();
+
+  // Format the date for nice display (e.g., "Sat, Aug 19")
+  const formattedDisplayDate = (() => {
+    try {
+      const d = new Date(searchDate);
+      return d.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return "Today";
+    }
+  })();
 
   useEffect(() => {
-  const load = async () => {
-    const allBuses = await fetchBuses();
+    useEffect(() => {
+  const loadBuses = async () => {
+    try {
+      const allBuses = await fetchBuses();
 
-    console.log(allBuses);
+      const filteredBuses = allBuses.filter((bus) => {
+        const stops = bus.routeStops || bus.stops || [];
 
-    const filteredBuses = allBuses.filter((bus) => {
-      const stops = bus.routeStops || bus.stops || [];
-
-      if (stops.length === 0) {
-        return false;
-      }
-
-      // Convert string stops into BusStop-like objects if needed
-      const normalizedStops = stops.map((stop, index) => {
-        if (typeof stop === "string") {
-          return {
-            id: String(index),
-            name: stop,
-            latitude: 0,
-            longitude: 0,
-          };
+        if (stops.length === 0) {
+          return false;
         }
 
-        return {
-          id: stop.id || String(index),
-          name: stop.name,
-          latitude: stop.latitude || 0,
-          longitude: stop.longitude || 0,
-        };
+        const normalizedStops = stops.map((stop, index) => {
+          if (typeof stop === "string") {
+            return {
+              id: String(index),
+              name: stop,
+              latitude: 0,
+              longitude: 0,
+            };
+          }
+
+          return {
+            id: stop.id || String(index),
+            name: stop.name,
+            latitude: stop.latitude || 0,
+            longitude: stop.longitude || 0,
+          };
+        });
+
+        return matchesRoute(
+          normalizedStops,
+          searchFrom,
+          searchTo
+        );
       });
 
-      return matchesRoute(normalizedStops, searchFrom, searchTo);
-    });
-
-    setBuses(filteredBuses);
+      setBuses(filteredBuses);
+    } catch (error) {
+      console.error("Error loading buses:", error);
+      setBuses([]);
+    }
   };
 
-  load();
+  loadBuses();
 
-  window.addEventListener("bussinn:buses", load);
+  window.addEventListener("bussinn:buses", loadBuses);
+
+  // Realtime live-location updates
+  const channel = supabase
+    .channel("live-bus-locations")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "live_locations",
+      },
+      (payload) => {
+        setBuses((currentBuses) =>
+          currentBuses.map((bus) => {
+            if (bus.id !== payload.new?.bus_id) {
+              return bus;
+            }
+
+            return {
+              ...bus,
+              latitude: payload.new.latitude,
+              longitude: payload.new.longitude,
+              speed: payload.new.speed,
+              heading: payload.new.heading,
+              updatedAt: payload.new.updated_at,
+            };
+          })
+        );
+      }
+    )
+    .subscribe();
 
   return () => {
-    window.removeEventListener("bussinn:buses", load);
+    window.removeEventListener(
+      "bussinn:buses",
+      loadBuses
+    );
+
+    supabase.removeChannel(channel);
   };
 }, [searchFrom, searchTo]);
 
@@ -108,8 +167,12 @@ const handleViewRoute = async (bus) => {
               <span className="route-text">{searchTo}</span>
             </div>
             <div className="search-meta-row">
-              <span className="meta-date">Sat, Aug 8</span>
-              <Link to="/passenger/search" search={{ from: searchFrom, to: searchTo }} className="change-search-link">
+              <span className="meta-date">{formattedDisplayDate}</span>
+              <Link 
+                to="/passenger/search" 
+                search={{ from: searchFrom, to: searchTo }} 
+                className="change-search-link"
+              >
                 Change
               </Link>
             </div>
@@ -131,7 +194,6 @@ const handleViewRoute = async (bus) => {
                 const hasDeparted = checkIfDeparted(bus.startTime);
                 const busId = bus.id || "default-bus-id";
 
-                // Extract specific stops for this individual bus card
                 const busStops = bus.routeStops || bus.stops || [
                   { name: searchFrom, time: bus.startTime || "22:00" },
                   { name: searchTo, time: bus.arrivalTime || "05:15" }

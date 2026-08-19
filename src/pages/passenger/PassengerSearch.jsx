@@ -3,6 +3,27 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import "../../styles/PassengerSearch.css";
 
+// Comprehensive list of cities/districts for autocomplete suggestions
+const CITIES_LIST = [
+  "Greater Noida", "Noida", "Delhi", "New Delhi", "Gurugram", "Ghaziabad", "Faridabad",
+  "Mumbai", "Pune", "Nagpur", "Nashik", "Aurangabad", "Solapur", "Kolhapur", "Amravati",
+  "Bengaluru", "Mysuru", "Hubballi", "Mangaluru", "Belagavi", "Kalaburagi",
+  "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli",
+  "Hyderabad", "Warangal, Hanmakonda", "Nizamabad", "Karimnagar",
+  "Kolkata", "Howrah", "Durgapur", "Asansol", "Siliguri",
+  "Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar",
+  "Jaipur", "Jodhpur", "Udaipur", "Kota", "Ajmer", "Bikaner",
+  "Lucknow", "Kanpur", "Varanasi", "Agra", "Prayagraj", "Meerut", "Bareilly", "Aligarh", "Moradabad", "Gorakhpur", "Hardoi Bypass", "Haridwar", "Haldwani", "Harraiya", "Hazaribagh", "Hanuman Junction", "Hamirpur (Himachal Pradesh)",
+  "Patna", "Gaya", "Bhagalpur", "Muzaffarpur", "Purnia",
+  "Bhopal", "Indore", "Jabalpur", "Gwalior", "Ujjain", "Sagar",
+  "Chandigarh", "Ludhiana", "Amritsar", "Jalandhar", "Patiala",
+  "Indore", "Raipur", "Bilaspur", "Durg", "Ranchi", "Jamshedpur", "Dhanbad",
+  "Guwahati", "Dibrugarh", "Silchar", "Bhubaneswar", "Cuttack", "Rourkela",
+  "Thiruvananthapuram", "Kochi", "Kozhikode", "Thrissur", "Kollam",
+  "Dehradun", "Rishikesh", "Roorkee", "Shimla", "Manali", "Dharamshala",
+  "Srinagar", "Jammu", "Leh", "Panaji", "Margao", "Vasco da Gama"
+];
+
 // Formats a Date object into "Wed, 22 Sep" style string
 const formatDisplayDate = (d) => {
   return d.toLocaleDateString("en-US", {
@@ -22,8 +43,12 @@ const formatInputDate = (d) => {
 
 const PassengerSearch = () => {
   const navigate = useNavigate();
-  const [from, setFrom] = useState("Pune");
-  const [to, setTo] = useState("Mumbai");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  // Suggestion states
+  const [fromSuggestions, setFromSuggestions] = useState([]);
+  const [toSuggestions, setToSuggestions] = useState([]);
 
   // Keep the actual Date object as source of truth, derive the display string from it
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -35,6 +60,36 @@ const PassengerSearch = () => {
   const handleSwap = () => {
     setFrom(to);
     setTo(from);
+    setFromSuggestions([]);
+    setToSuggestions([]);
+  };
+
+  // Handle From input changes & filter suggestions
+  const handleFromChange = (e) => {
+    const val = e.target.value;
+    setFrom(val);
+    if (val.trim().length > 0) {
+      const filtered = CITIES_LIST.filter((city) =>
+        city.toLowerCase().includes(val.toLowerCase())
+      ).slice(0, 6); // limit to 6 suggestions
+      setFromSuggestions(filtered);
+    } else {
+      setFromSuggestions([]);
+    }
+  };
+
+  // Handle To input changes & filter suggestions
+  const handleToChange = (e) => {
+    const val = e.target.value;
+    setTo(val);
+    if (val.trim().length > 0) {
+      const filtered = CITIES_LIST.filter((city) =>
+        city.toLowerCase().includes(val.toLowerCase())
+      ).slice(0, 6);
+      setToSuggestions(filtered);
+    } else {
+      setToSuggestions([]);
+    }
   };
 
   // Opens the native date picker when the calendar icon or date text is clicked
@@ -49,7 +104,6 @@ const PassengerSearch = () => {
     }
   };
 
-  // Fired when the user picks a date from the native picker
   const handleDateInputChange = (e) => {
     if (!e.target.value) return;
     const [year, month, day] = e.target.value.split("-").map(Number);
@@ -71,16 +125,20 @@ const PassengerSearch = () => {
     setDate(formatDisplayDate(tomorrow));
   };
 
-  // Handle Search Execution - Passing user entered from and to locations via search parameters
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (!from.trim() || !to.trim()) return;
+  // Handle Search Execution
+const handleSearch = (e) => {
+  e.preventDefault();
+  if (!from.trim() || !to.trim()) return;
 
-    navigate({ 
-      to: "/passenger/results", 
-      search: { from: from.trim(), to: to.trim() } 
-    });
-  };
+  navigate({ 
+    to: "/passenger/results", 
+    search: { 
+      from: from.trim(), 
+      to: to.trim(), 
+      date: formatInputDate(selectedDate) // <-- This sends the chosen date to the results page
+    } 
+  });
+};
 
   return (
     <div className="passenger-choice-page">
@@ -104,19 +162,38 @@ const PassengerSearch = () => {
             <div className="flex flex-col relative">
               
               {/* From Field */}
-              <div className="flex items-center px-4 py-4 border-b border-gray-100 group focus-within:bg-gray-50 transition-colors rounded-t-xl">
+              <div className="flex items-center px-4 py-4 border-b border-gray-100 group focus-within:bg-gray-50 transition-colors rounded-t-xl relative">
                 <span className="material-symbols-outlined text-gray-400 text-xl mr-3">location_on</span>
-                <div className="flex-1">
+                <div className="flex-1 relative">
                   <label className="sr-only" htmlFor="from">From</label>
                   <input 
                     className="w-full bg-transparent border-none p-0 text-gray-800 text-lg font-medium placeholder-gray-400 focus:ring-0 outline-none" 
                     id="from" 
                     type="text" 
                     value={from}
-                    onChange={(e) => setFrom(e.target.value)}
+                    onChange={handleFromChange}
                     placeholder="Leaving from..." 
                     required
+                    autoComplete="off"
                   />
+                  {/* Suggestions Dropdown for 'From' */}
+                  {fromSuggestions.length > 0 && (
+                    <ul className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
+                      {fromSuggestions.map((item, index) => (
+                        <li 
+                          key={index}
+                          onClick={() => {
+                            setFrom(item);
+                            setFromSuggestions([]);
+                          }}
+                          className="px-4 py-3 hover:bg-blue-50 text-gray-700 text-sm font-medium cursor-pointer border-b border-gray-50 last:border-none transition-colors flex items-center"
+                        >
+                          <span className="material-symbols-outlined text-gray-400 text-base mr-2">location_on</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
 
@@ -124,26 +201,45 @@ const PassengerSearch = () => {
               <button 
                 type="button"
                 onClick={handleSwap}
-                className="absolute right-6 top-[3.25rem] transform -translate-y-1/2 bg-gray-800 text-white rounded-full p-2 shadow-md hover:bg-gray-700 transition-colors z-20 focus:outline-none flex items-center justify-center cursor-pointer"
+                className="absolute right-6 top-[3.25rem] transform -translate-y-1/2 bg-gray-800 text-white rounded-full p-2 shadow-md hover:bg-gray-700 transition-colors z-30 focus:outline-none flex items-center justify-center cursor-pointer"
                 title="Swap locations"
               >
                 <span className="material-symbols-outlined text-lg leading-none">swap_vert</span>
               </button>
 
               {/* To Field */}
-              <div className="flex items-center px-4 py-4 border-b border-gray-100 group focus-within:bg-gray-50 transition-colors">
+              <div className="flex items-center px-4 py-4 border-b border-gray-100 group focus-within:bg-gray-50 transition-colors relative">
                 <span className="material-symbols-outlined text-gray-400 text-xl mr-3">near_me</span>
-                <div className="flex-1">
+                <div className="flex-1 relative">
                   <label className="sr-only" htmlFor="to">To</label>
                   <input 
                     className="w-full bg-transparent border-none p-0 text-gray-800 text-lg font-medium placeholder-gray-400 focus:ring-0 outline-none" 
                     id="to" 
                     type="text" 
                     value={to}
-                    onChange={(e) => setTo(e.target.value)}
+                    onChange={handleToChange}
                     placeholder="Going to..." 
                     required
+                    autoComplete="off"
                   />
+                  {/* Suggestions Dropdown for 'To' */}
+                  {toSuggestions.length > 0 && (
+                    <ul className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
+                      {toSuggestions.map((item, index) => (
+                        <li 
+                          key={index}
+                          onClick={() => {
+                            setTo(item);
+                            setToSuggestions([]);
+                          }}
+                          className="px-4 py-3 hover:bg-blue-50 text-gray-700 text-sm font-medium cursor-pointer border-b border-gray-50 last:border-none transition-colors flex items-center"
+                        >
+                          <span className="material-symbols-outlined text-gray-400 text-base mr-2">near_me</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
 

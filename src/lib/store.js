@@ -1,6 +1,8 @@
 // Local-storage backed data store.
 // TODO: Replace every function here with real backend/database calls later.
 
+import { supabase } from "./supabase";
+
 const BUSES_KEY = "bussinn.buses";
 const AUTH_KEY = "bussinn.auth";
 
@@ -9,37 +11,23 @@ export const ADMIN_PASSWORD = "BussInn@123";
 
 const SEED_BUSES = [
   {
-    
-  id: "bus-1",
-  busNumber: "MH12AB1001",
-  name: "Bus 1",
-  operator: "Bharat Benz A/C Seater /Sleeper (2+1)",
-  busType: "AC Sleeper",
-  registrationNumber: "MH12AB1001",
-  capacity: 42,
-  status: "ACTIVE",
-
-  rating: 4.8,
-  reviews: 209,
-  confidence: 95,
-  distanceAway: "1.4 km away",
-
-  departTime: "22:00",
-  departStop: "Swargate",
-
-  arriveTime: "05:15",
-  arriveStop: "Andheri East",
-
-  duration: "7h 15m",
-  eta: "12 mins",
-
-  price: 559,
-  oldPrice: 699,
-
-  live: true,
-  accent: "#12b76a",
-
-  
+    id: "bus-1",
+    name: "Bus 1",
+    operator: "Bharat Benz A/C Seater /Sleeper (2+1)",
+    rating: 4.8,
+    reviews: 209,
+    confidence: 95,
+    distanceAway: "1.4 km away",
+    departTime: "22:00",
+    departStop: "Swargate",
+    arriveTime: "05:15",
+    arriveStop: "Andheri East",
+    duration: "7h 15m",
+    eta: "12 mins",
+    price: 559,
+    oldPrice: 699,
+    live: true,
+    accent: "#12b76a",
     stops: [
       { name: "Swargate", time: "22:00" },
       { name: "Katraj", time: "22:40" },
@@ -49,12 +37,7 @@ const SEED_BUSES = [
   },
   {
     id: "bus-2",
-    busNumber: "MH14CD2002",
     name: "Bus 2",
-    busType: "Non AC Seater",
-    registrationNumber: "MH14CD2002",
-    capacity: 36,
-    status: "ACTIVE", 
   
     rating: 4.6,
     reviews: 128,
@@ -81,18 +64,19 @@ const SEED_BUSES = [
 
 const isBrowser = () => typeof window !== "undefined";
 
-export function getBuses() {
-  if (!isBrowser()) return SEED_BUSES;
-  try {
-    const raw = window.localStorage.getItem(BUSES_KEY);
-    if (!raw) {
-      window.localStorage.setItem(BUSES_KEY, JSON.stringify(SEED_BUSES));
-      return SEED_BUSES;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return SEED_BUSES;
+
+export async function getBuses() {
+  const { data, error } = await supabase
+    .from("buses")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching buses:", error);
+    return [];
   }
+
+  return data || [];
 }
 
 function saveBuses(buses) {
@@ -101,44 +85,88 @@ function saveBuses(buses) {
   window.dispatchEvent(new Event("bussinn:buses"));
 }
 
-export function addBus(bus) {
-  const buses = getBuses();
-  const next = [
-  ...buses,
-  {
-    status: "ACTIVE",
-    capacity: bus.capacity || 40,
-    busType: bus.busType || "AC Sleeper",
-    registrationNumber:
-      bus.registrationNumber || `TEMP-${Date.now()}`,
-    busNumber:
-      bus.busNumber || `BUS-${Date.now()}`,
-    ...bus,
-    id: `bus-${Date.now()}`
+
+export async function addBus(bus) {
+  const { data, error } = await supabase
+    .from("buses")
+    .insert([
+      {
+        name: bus.name,
+        operator: bus.operator,
+        rating: bus.rating,
+        reviews: 0,
+        confidence: bus.confidence,
+        price: bus.price,
+        old_price: null,
+        departure_time: bus.departTime,
+        arrival_time: bus.arriveTime,
+        live: bus.live,
+        accent: bus.accent,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error adding bus:", error);
+    throw error;
   }
-];
-  saveBuses(next);
-  return next;
+
+
+  return data;
 }
 
-export function updateBus(id, patch) {
-  const next = getBuses().map((b) => (b.id === id ? { ...b, ...patch } : b));
-  saveBuses(next);
-  return next;
+export async function updateBus(id, patch) {
+  console.log("UPDATE ID:", id);
+  console.log("UPDATE PATCH:", patch);
+
+  const { data, error } = await supabase
+    .from("buses")
+    .update(patch)
+    .eq("id", id)
+    .select("*");
+
+  console.log("SUPABASE UPDATE DATA:", data);
+  console.log("SUPABASE UPDATE ERROR:", error);
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
-export function deleteBus(id) {
-  const next = getBuses().filter((b) => b.id !== id);
-  saveBuses(next);
-  return next;
-}
+export async function deleteBus(id) {
+  console.log("Deleting bus:", id);
 
-export function getBus(id) {
-  return getBuses().find((b) => b.id === id) || null;
-}
+  const { data, error } = await supabase
+    .from("buses")
+    .delete()
+    .eq("id", id);
 
-export function setBusStops(id, stops) {
-  return updateBus(id, { stops });
+  console.log("DELETE DATA:", data);
+  console.log("DELETE ERROR:", error);
+
+  if (error) {
+    console.error("DELETE FAILED:", error);
+    throw error;
+  }
+
+  return data;
+}
+export async function getBus(id) {
+  const { data, error } = await supabase
+    .from("buses")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching bus:", error);
+    return null;
+  }
+
+  return data;
 }
 
 /* ---------- auth (local only) ---------- */

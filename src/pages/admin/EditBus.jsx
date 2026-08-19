@@ -5,23 +5,15 @@ import { getBus, updateBus } from "../../lib/store";
 import "../../styles/Admin.css";
 
 const FIELDS = [
-  ["name", "Bus name"],
-  ["operator", "Bus type / operator"],
-  ["departTime", "Departure time"],
-  ["arriveTime", "Arrival time"],
-  ["departStop", "Boarding point"],
-  ["arriveStop", "Drop point"],
-  ["duration", "Duration"],
-  ["eta", "ETA"],
-  ["price", "Fare (₹)"],
-  ["oldPrice", "Old fare (₹)"],
-  ["rating", "Rating"],
-  ["reviews", "Reviews"],
-  ["confidence", "Confidence %"],
-  ["distanceAway", "Distance away"],
+  ["name", "Bus name", "text"],
+  ["operator", "Bus type / operator", "text"],
+  ["departTime", "Departure time", "time"],
+  ["arriveTime", "Arrival time", "time"],
+  ["departStop", "Boarding point", "text"],
+  ["arriveStop", "Drop point", "text"],
+  ["price", "Fare (₹)", "number"],
 ];
 
-// Admin — edit an existing bus listing.
 const EditBus = () => {
   const { busId } = useParams({ from: "/admin/edit-bus/$busId" });
   const navigate = useNavigate();
@@ -37,6 +29,31 @@ const EditBus = () => {
       setForm(next);
     }
   }, [busId]);
+
+  const calculateDuration = (depart, arrive) => {
+    if (!depart || !arrive) return "N/A";
+    try {
+      const [depH, depM] = depart.split(":").map(Number);
+      const [arrH, arrM] = arrive.split(":").map(Number);
+      
+      let depTotalMins = depH * 60 + depM;
+      let arrTotalMins = arrH * 60 + arrM;
+
+      if (arrTotalMins < depTotalMins) {
+        arrTotalMins += 24 * 60;
+      }
+
+      const diffMins = arrTotalMins - depTotalMins;
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+
+      if (hours === 0) return `${mins}m`;
+      if (mins === 0) return `${hours}h`;
+      return `${hours}h ${mins}m`;
+    } catch {
+      return "N/A";
+    }
+  };
 
   if (!form) {
     return (
@@ -54,25 +71,26 @@ const EditBus = () => {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            const calculatedDuration = calculateDuration(form.departTime, form.arriveTime);
+            
             updateBus(busId, {
               ...form,
-              rating: Number(form.rating) || 0,
-              reviews: Number(form.reviews) || 0,
-              confidence: Number(form.confidence) || 0,
+              duration: calculatedDuration,
               price: Number(form.price) || 0,
-              oldPrice: form.oldPrice ? Number(form.oldPrice) : null,
             });
             navigate({ to: "/admin/overview" });
           }}
         >
           <div className="two-col">
-            {FIELDS.map(([key, label]) => (
+            {FIELDS.map(([key, label, type]) => (
               <div key={key}>
                 <label className="field-label">{label}</label>
                 <input
+                  type={type}
                   className="field"
-                  value={form[key]}
+                  value={form[key] ?? ""}
                   onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  {...(type === "time" ? { placeholder: "HH:MM" } : {})}
                 />
               </div>
             ))}
