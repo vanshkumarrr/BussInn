@@ -1,3 +1,5 @@
+import LiveBusMap from "../../components/LiveBusMap";
+import { supabase } from "../../lib/supabase";
 import { useEffect, useState } from "react";
 import { useParams, Link, useSearch } from "@tanstack/react-router";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -12,18 +14,79 @@ const BusRoute = () => {
   const searchTo = searchParams?.to || "Mumbai";
 
   const [bus, setBus] = useState(null);
+  const [liveLocation, setLiveLocation] = useState(null);
   const [isStuckInTraffic, setIsStuckInTraffic] = useState(false);
 
   useEffect(() => {
-    const fetchedBus = getBus(busId);
+  const loadBus = async () => {
+    const fetchedBus = await getBus(busId);
     setBus(fetchedBus);
+  };
 
-    const trafficTimer = setTimeout(() => {
-      setIsStuckInTraffic(true);
-    }, 5000);
+  loadBus();
 
-    return () => clearTimeout(trafficTimer);
-  }, [busId]);
+  const trafficTimer = setTimeout(() => {
+    setIsStuckInTraffic(true);
+  }, 5000);
+
+  return () => clearTimeout(trafficTimer);
+}, [busId]);
+
+// Load and subscribe to driver's live GPS
+useEffect(() => {
+  if (!busId) return;
+
+  const loadLiveLocation = async () => {
+    const { data, error } = await supabase
+      .from("live_locations")
+      .select("latitude, longitude, speed, heading, updated_at")
+      .eq("bus_id", busId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading live location:", error);
+      return;
+    }
+
+    if (data) {
+      setLiveLocation(data);
+    }
+  };
+
+  loadLiveLocation();
+
+  const channel = supabase
+    .channel(`passenger-bus-${busId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "live_locations",
+        filter: `bus_id=eq.${busId}`,
+      },
+      (payload) => {
+        console.log("PASSENGER LIVE GPS:", payload);
+
+        if (payload.new) {
+          setLiveLocation({
+            latitude: payload.new.latitude,
+            longitude: payload.new.longitude,
+            speed: payload.new.speed,
+            heading: payload.new.heading,
+            updated_at: payload.new.updated_at,
+          });
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("Passenger GPS realtime:", status);
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [busId]);
 
   if (!bus) {
     return (
@@ -44,20 +107,87 @@ const BusRoute = () => {
   ];
 
   // Normalize stops format to ensure name and time are read cleanly
-  const stopsList = rawStops.map((stop, i) => {
+ // Find which route stop is currently closest to the bus.
+let nearestStopIndex = -1;
+
+if (liveLocation?.latitude && liveLocation?.longitude) {
+  let shortestDistance = Infinity;
+
+  rawStops.forEach((stop, index) => {
     if (typeof stop === "string") {
-      return {
-        name: stop,
-        time: i === 0 ? (bus.startTime || "22:00") : (i === rawStops.length - 1 ? (bus.arrivalTime || "05:15") : "In Transit"),
-        crossed: i < 2
-      };
+      return;
     }
-    return {
-      name: stop.name || stop,
-      time: stop.time || "22:00",
-      crossed: stop.crossed !== undefined ? stop.crossed : i < 2
-    };
+
+    const stopLatitude = Number(stop.latitude);
+    const stopLongitude = Number(stop.longitude);
+
+    // Ignore stops that don't have valid coordinates.
+    if (!stopLatitude || !stopLongitude) {
+      return;
+    }
+
+    const latitudeDifference =
+      Number(liveLocation.latitude) - stopLatitude;
+
+    const longitudeDifference =
+      Number(liveLocation.longitude) - stopLongitude;
+
+    // Simple distance calculation for nearby route stops.
+    const distance =
+      latitudeDifference * latitudeDifference +
+      longitudeDifference * longitudeDifference;
+
+    if (distance < shortestDistance) {
+      shortestDistance = distance;
+      nearestStopIndex = index;
+    }
+    });
+
+  console.log("STOP PROGRESS DEBUG:", {
+    liveLocation,
+    nearestStopIndex,
+    stops: rawStops.map((stop, index) => ({
+      index,
+      name: typeof stop === "string" ? stop : stop.name,
+      latitude: typeof stop === "string" ? null : stop.latitude,
+      longitude: typeof stop === "string" ? null : stop.longitude,
+    })),
   });
+}
+
+// Normalize stops and calculate their live progress.
+
+   const stopsList = rawStops.map((stop, i) => {
+  if (typeof stop === "string") {
+    return {
+      name: stop,
+      time:
+        i === 0
+          ? bus.startTime || "22:00"
+          : i === rawStops.length - 1
+            ? bus.arrivalTime || "05:15"
+            : "In Transit",
+      latitude: null,
+      longitude: null,
+      crossed:
+        nearestStopIndex >= 0
+          ? i <= nearestStopIndex
+          : false,
+    };
+  }
+
+  return {
+    name: stop.name || "",
+    time: stop.time || "22:00",
+    latitude: Number(stop.latitude) || 0,
+    longitude: Number(stop.longitude) || 0,
+    crossed:
+      nearestStopIndex >= 0
+        ? i <= nearestStopIndex
+        : false,
+  };
+});
+
 
   return (
     <div className="page mobile-page-container">
@@ -85,19 +215,12 @@ const BusRoute = () => {
         )}
 
         <div className="map-viewport-section">
-          <div className="map-placeholder-bg">
-            <img 
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&auto=format&fit=crop&q=80" 
-              alt="Live Map View" 
-              className="map-mock-img"
-            />
-            <div className="live-bus-map-pin">
-              <span className="material-symbols-outlined pin-icon">directions_bus</span>
-              <span className="pin-pulse"></span>
-            </div>
-          </div>
-        </div>
-
+  <LiveBusMap
+    latitude={liveLocation?.latitude}
+    longitude={liveLocation?.longitude}
+    busNumber={bus.name || `Bus #${busId}`}
+  />
+</div>
         <div className="route-bottom-sheet">
           <div className="sheet-drag-handle"></div>
 

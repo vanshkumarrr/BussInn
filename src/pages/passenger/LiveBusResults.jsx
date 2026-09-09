@@ -405,6 +405,15 @@ const LiveBusResults = () => {
                         </div>
                       </div>
 
+{bus.latitude && bus.longitude && (
+  <div style={{ marginTop: "16px" }}>
+    <LiveBusMap
+      latitude={bus.latitude}
+      longitude={bus.longitude}
+      busNumber={bus.name}
+    />
+  </div>
+)}
                       <div className="bus-card-footer-row">
 
                         <div className="price-display-block">

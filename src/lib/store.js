@@ -145,6 +145,17 @@ export async function getBuses() {
     };
   });
 }
+/* ---------- get single bus ---------- */
+
+export async function getBus(id) {
+  const buses = await getBuses();
+
+  return (
+    buses.find(
+      (bus) => String(bus.id) === String(id)
+    ) || null
+  );
+}
 
 /* ---------- add bus ---------- */
 
@@ -363,141 +374,21 @@ export async function updateBus(
 
 /* ---------- delete bus ---------- */
 
-export async function deleteBus(
-  id
-) {
-  console.log(
-    "Deleting bus:",
-    id
-  );
+export async function deleteBus(id) {
+  console.log("Deleting bus:", id);
 
-  const {
-    data,
-    error,
-  } = await supabase
+  const { data, error } = await supabase
     .from("buses")
     .delete()
     .eq("id", id);
 
-  console.log(
-    "DELETE DATA:",
-    data
-  );
-
-  console.log(
-    "DELETE ERROR:",
-    error
-  );
+  console.log("DELETE DATA:", data);
+  console.log("DELETE ERROR:", error);
 
   if (error) {
-    console.error(
-      "DELETE FAILED:",
-      error
-    );
-
+    console.error("DELETE FAILED:", error);
     throw error;
   }
 
   return data;
-}
-
-/* ---------- get one bus ---------- */
-
-export async function getBus(
-  id
-) {
-  const {
-    data,
-    error,
-  } = await supabase
-    .from("buses")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) {
-    console.error(
-      "Error fetching bus:",
-      error
-    );
-
-    return null;
-  }
-
-  return data;
-}
-
-/* ---------- local storage helpers ---------- */
-
-function saveBuses(buses) {
-  if (!isBrowser()) {
-    return;
-  }
-
-  window.localStorage.setItem(
-    BUSES_KEY,
-    JSON.stringify(buses)
-  );
-
-  window.dispatchEvent(
-    new Event("bussinn:buses")
-  );
-}
-
-/* ---------- local auth compatibility ---------- */
-
-export function getSession() {
-  if (!isBrowser()) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(
-      window.localStorage.getItem(
-        AUTH_KEY
-      ) || "null"
-    );
-  } catch {
-    return null;
-  }
-}
-
-export function signIn(
-  email,
-  password
-) {
-  const isAdmin =
-    email
-      .trim()
-      .toLowerCase() ===
-      ADMIN_EMAIL &&
-    password ===
-      ADMIN_PASSWORD;
-
-  const session = {
-    email:
-      email.trim(),
-
-    role:
-      isAdmin
-        ? "admin"
-        : "passenger",
-  };
-
-  if (isBrowser()) {
-    window.localStorage.setItem(
-      AUTH_KEY,
-      JSON.stringify(session)
-    );
-  }
-
-  return session;
-}
-
-export function signOut() {
-  if (isBrowser()) {
-    window.localStorage.removeItem(
-      AUTH_KEY
-    );
-  }
 }
