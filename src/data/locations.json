@@ -1,0 +1,128 @@
+[
+  {
+    "name": "Kolkata",
+    "district": "Kolkata",
+    "state": "West Bengal",
+    "type": "City"
+  },
+  {
+    "name": "Kanpur",
+    "district": "Kanpur Nagar",
+    "state": "Uttar Pradesh",
+    "type": "City"
+  },
+  {
+    "name": "Kochi",
+    "district": "Ernakulam",
+    "state": "Kerala",
+    "type": "City"
+  },
+  {
+    "name": "Kozhikode",
+    "district": "Kozhikode",
+    "state": "Kerala",
+    "type": "City"
+  },
+  {
+    "name": "Kota",
+    "district": "Kota",
+    "state": "Rajasthan",
+    "type": "City"
+  },
+  {
+    "name": "Kurnool",
+    "district": "Kurnool",
+    "state": "Andhra Pradesh",
+    "type": "City"
+  },
+  {
+    "name": "Kanyakumari",
+    "district": "Kanyakumari",
+    "state": "Tamil Nadu",
+    "type": "District"
+  },
+  {
+    "name": "Karol Bagh",
+    "district": "Central Delhi",
+    "state": "Delhi",
+    "type": "Locality"
+  },
+  {
+    "name": "Kashmere Gate",
+    "district": "Central Delhi",
+    "state": "Delhi",
+    "type": "Bus Terminal"
+  },
+  {
+    "name": "Delhi",
+    "district": "New Delhi",
+    "state": "Delhi",
+    "type": "City"
+  },
+  {
+    "name": "Mumbai",
+    "district": "Mumbai Suburban",
+    "state": "Maharashtra",
+    "type": "City"
+  },
+  {
+    "name": "Bengaluru",
+    "district": "Bengaluru Urban",
+    "state": "Karnataka",
+    "type": "City"
+  },
+  {
+    "name": "Chennai",
+    "district": "Chennai",
+    "state": "Tamil Nadu",
+    "type": "City"
+  },
+  {
+    "name": "Hyderabad",
+    "district": "Hyderabad",
+    "state": "Telangana",
+    "type": "City"
+  },
+  {
+    "name": "Pune",
+    "district": "Pune",
+    "state": "Maharashtra",
+    "type": "City"
+  },
+  {
+    "name": "Ahmedabad",
+    "district": "Ahmedabad",
+    "state": "Gujarat",
+    "type": "City"
+  },
+  {
+    "name": "Jaipur",
+    "district": "Jaipur",
+    "state": "Rajasthan",
+    "type": "City"
+  },
+  {
+    "name": "Lucknow",
+    "district": "Lucknow",
+    "state": "Uttar Pradesh",
+    "type": "City"
+  },
+  {
+    "name": "Patna",
+    "district": "Patna",
+    "state": "Bihar",
+    "type": "City"
+  },
+  {
+    "name": "Bhopal",
+    "district": "Bhopal",
+    "state": "Madhya Pradesh",
+    "type": "City"
+  },
+  {
+    "name": "Guwahati",
+    "district": "Kamrup Metropolitan",
+    "state": "Assam",
+    "type": "City"
+  }
+]

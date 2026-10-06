@@ -1,0 +1,72 @@
+/* Shared base styles for all pages. Keep page-specific styling in each page's own CSS file. */
+
+:root {
+  --bn-blue: #1a56ff;
+  --bn-bg: #f5f7fb;
+  --bn-card: #ffffff;
+  --bn-text: #101828;
+  --bn-muted: #667085;
+  --bn-border: #e4e7ec;
+}
+
+body {
+  margin: 0;
+  background: var(--bn-bg);
+  color: var(--bn-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 110px;
+  box-sizing: border-box;
+}
+
+.container {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bn-card);
+  border: 1px solid var(--bn-border);
+  border-radius: 16px;
+  padding: 24px 20px;
+  box-shadow: 0 2px 12px rgba(16, 24, 40, 0.05);
+}
+
+.header {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.content {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--bn-blue);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.content:hover {
+  filter: brightness(0.94);
+}
+
+.content:last-child {
+  margin-bottom: 0;
+}
+
+.footer {
+  margin-top: 16px;
+  color: var(--bn-muted);
+  font-size: 13px;
+}

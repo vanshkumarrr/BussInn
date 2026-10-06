@@ -1,0 +1,319 @@
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --history-primary: #004cca;
+  --history-primary-bright: #0062ff;
+  --history-surface: #f4f7fc;
+  --history-text: #172033;
+  --history-muted: #65728a;
+  --history-outline: #e2e8f2;
+  --history-font: "Hanken Grotesk", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.ride-history-page {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at 10% 5%, rgba(0, 98, 255, 0.1), transparent 30%),
+    linear-gradient(145deg, #e8eef8, #f5f7fc 55%, #e9f0fa);
+  font-family: var(--history-font);
+}
+
+.ride-history-app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: hidden;
+  background: var(--history-surface);
+}
+
+/* Header */
+.passenger-header-history {
+  position: relative;
+  min-height: 210px;
+  padding: 22px 20px 80px;
+  overflow: hidden;
+  border-radius: 0 0 34px 34px;
+  background:
+    radial-gradient(circle at 16% 14%, rgba(255, 255, 255, 0.2), transparent 32%),
+    linear-gradient(140deg, #003b9f 0%, #0051cc 55%, #0870f9 100%);
+  color: #ffffff;
+}
+
+.passenger-header-history::before,
+.passenger-header-history::after {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.passenger-header-history::before {
+  top: -125px;
+  right: -80px;
+  width: 270px;
+  height: 270px;
+  box-shadow:
+    0 0 0 24px rgba(255, 255, 255, 0.04),
+    0 0 0 52px rgba(255, 255, 255, 0.03);
+}
+
+.passenger-header-history::after {
+  bottom: -125px;
+  left: -92px;
+  width: 230px;
+  height: 230px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.history-header-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 49px;
+  padding: 8px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 8px 20px rgba(0, 30, 86, 0.16);
+  color: var(--history-primary);
+}
+
+.history-brand-icon {
+  width: 27px;
+  height: 27px;
+  stroke-width: 2.8;
+}
+
+.history-brand span {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.history-header-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.history-header-label svg {
+  width: 16px;
+  height: 16px;
+}
+
+.history-title-area {
+  position: relative;
+  z-index: 1;
+  margin-top: 31px;
+}
+
+.history-title-area h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+}
+
+.history-title-area p {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 13px;
+}
+
+/* Ride cards */
+.passenger-main-content-history {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  padding: 0 16px 105px;
+  margin-top: -46px;
+}
+
+.rides-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.ride-card {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(25, 58, 111, 0.08);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.ride-card:hover {
+  box-shadow: 0 14px 30px rgba(0, 82, 204, 0.12);
+  transform: translateY(-2px);
+}
+
+.ride-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.ride-route-group {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+  color: var(--history-text);
+}
+
+.ride-city {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ride-arrow {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  color: var(--history-primary);
+}
+
+.ride-status {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ride-status.completed {
+  background: #e8f8ef;
+  color: #137333;
+}
+
+.ride-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--history-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.detail-item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: #77839a;
+}
+
+.ride-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid #eef2f7;
+}
+
+.ride-id {
+  color: #77839a;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.ride-fare {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--history-primary);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.ride-fare svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.4;
+}
+
+/* Desktop view */
+@media (min-width: 600px) {
+  .ride-history-page {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .ride-history-app {
+    min-height: min(900px, calc(100vh - 48px));
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 30px;
+    box-shadow: 0 26px 80px rgba(22, 45, 91, 0.15);
+  }
+
+  .passenger-header-history {
+    border-radius: 30px;
+  }
+}
+
+@media (max-width: 360px) {
+  .passenger-header-history {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .passenger-main-content-history {
+    padding-right: 11px;
+    padding-left: 11px;
+  }
+
+  .history-brand span {
+    font-size: 21px;
+  }
+
+  .history-header-label {
+    font-size: 8px;
+  }
+}
