@@ -124,5 +124,23 @@
     "district": "Kamrup Metropolitan",
     "state": "Assam",
     "type": "City"
-  }
+  },
+  {
+  "name": "Anand Vihar",
+  "district": "East Delhi",
+  "state": "Delhi",
+  "type": "City"
+},
+{
+  "name": "Hamirpur",
+  "district": "Hamirpur",
+  "state": "Uttar Pradesh",
+  "type": "City"
+},
+{
+    "name": "Dadri",
+  "district": "Greater Noida",
+  "state": "Uttar Pradesh",
+  "type": "City"
+}
 ]

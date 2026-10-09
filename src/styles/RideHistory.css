@@ -317,3 +317,50 @@
     font-size: 8px;
   }
 }
+.ride-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 9px;
+  padding: 34px 20px;
+  background: #fff;
+  border: 1px solid #e5eaf2;
+  border-radius: 20px;
+  color: #64748b;
+}
+
+.ride-history-empty h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+}
+
+.ride-history-empty p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ride-history-empty a {
+  margin-top: 7px;
+  color: #0757d5;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.ride-status.ended-early {
+  background: #fff4df;
+  color: #946200;
+}
+
+.ride-history-stops {
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.ride-history-stops span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

@@ -1,44 +1,74 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   BusFront,
   CalendarDays,
   History,
-  Ticket
+  Star,
+  Ticket,
 } from "lucide-react";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import { getCompletedRides } from "../../lib/rideHistory";
 import "../../styles/RideHistory.css";
+import "../../styles/RideHistory.css";
 
-const demoRides = [
-  {
-    id: "DEMO-001",
-    from: "Pune",
-    to: "Mumbai",
-    serviceType: "Ordinary",
-    date: "22 Sep, 2021",
-    time: "08:30 AM",
-    fare: "₹450",
-    status: "Completed"
-  },
-  {
-    id: "DEMO-002",
-    from: "Central Station",
-    to: "Airport",
-    serviceType: "AC",
-    date: "20 Sep, 2021",
-    time: "02:15 PM",
-    fare: "₹120",
-    status: "Completed"
+const readLocalRideHistory = () => {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem("bussinn_completed_rides") || "[]"
+    );
+
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
   }
-];
+};
 
 const RideHistory = () => {
   const [completedRides, setCompletedRides] = useState([]);
 
   useEffect(() => {
     const loadRides = () => {
-      setCompletedRides(getCompletedRides());
+      let helperRides = [];
+
+      try {
+        const result = getCompletedRides();
+
+        if (Array.isArray(result)) {
+          helperRides = result;
+        }
+      } catch (error) {
+        console.warn(
+          "Ride history helper could not load rides",
+          error
+        );
+      }
+
+      const localRides = readLocalRideHistory();
+      const merged = [...localRides, ...helperRides];
+
+      const unique = merged.filter((ride, index, array) => {
+        const id =
+          ride.id ||
+          `${ride.from || ride.startLocation}-${
+            ride.to || ride.endLocation
+          }-${ride.date}-${ride.time}`;
+
+        return (
+          array.findIndex((item) => {
+            const itemId =
+              item.id ||
+              `${item.from || item.startLocation}-${
+                item.to || item.endLocation
+              }-${item.date}-${item.time}`;
+
+            return itemId === id;
+          }) === index
+        );
+      });
+
+      setCompletedRides(unique);
     };
 
     loadRides();
@@ -47,7 +77,6 @@ const RideHistory = () => {
       "bussinn-ride-history-updated",
       loadRides
     );
-
     window.addEventListener("storage", loadRides);
 
     return () => {
@@ -55,12 +84,9 @@ const RideHistory = () => {
         "bussinn-ride-history-updated",
         loadRides
       );
-
       window.removeEventListener("storage", loadRides);
     };
   }, []);
-
-  const rides = [...completedRides, ...demoRides];
 
   return (
     <main className="ride-history-page">
@@ -87,52 +113,142 @@ const RideHistory = () => {
           </div>
         </header>
 
-        <main className="passenger-main-content-history">
+        <section className="passenger-main-content-history">
           <div className="rides-list-container">
-            {rides.map((ride) => (
-              <article key={ride.id} className="ride-card">
-                <div className="ride-card-top">
-                  <div className="ride-route-group">
-                    <span className="ride-city">{ride.from}</span>
-                    <ArrowRight className="ride-arrow" aria-hidden="true" />
-                    <span className="ride-city">{ride.to}</span>
-                  </div>
+            {completedRides.length === 0 ? (
+              <div className="ride-history-empty">
+                <BusFront size={30} />
+                <h2>No rides yet</h2>
+                <p>
+                  Your completed trips will appear here with pickup,
+                  drop, bus and fare details.
+                </p>
+                <Link to="/passenger/results">Find a bus</Link>
+              </div>
+            ) : (
+              completedRides.map((ride, index) => {
+                const from =
+                  ride.from ||
+                  ride.startLocation ||
+                  ride.pickupPoint ||
+                  "Pickup not saved";
 
-                  <span className="ride-status completed">
-                    {ride.status}
-                  </span>
-                </div>
+                const to =
+                  ride.to ||
+                  ride.endLocation ||
+                  ride.dropPoint ||
+                  "Drop not saved";
 
-                <div className="ride-card-details">
-                  <div className="detail-item">
-                    <BusFront aria-hidden="true" />
-                    <span>{ride.serviceType} bus</span>
-                  </div>
+                const status = ride.status || "Completed";
 
-                  <div className="detail-item">
-                    <CalendarDays aria-hidden="true" />
-                    <span>
-                      {ride.date} · {ride.time}
-                    </span>
-                  </div>
-                </div>
+                const isCompleted = status
+                  .toLowerCase()
+                  .includes("completed");
 
-                <div className="ride-card-footer">
-                  <span className="ride-id">
-                    {ride.id.startsWith("DEMO")
-                      ? "Demo journey"
-                      : ride.id}
-                  </span>
+                const busType =
+                  ride.serviceType ||
+                  ride.bus_type ||
+                  ride.busType ||
+                  "Bus";
 
-                  <span className="ride-fare">
-                    <Ticket aria-hidden="true" />
-                    {ride.fare}
-                  </span>
-                </div>
-              </article>
-            ))}
+                return (
+                  <article
+                    key={ride.id || `${from}-${to}-${index}`}
+                    className="ride-card"
+                  >
+                    <div className="ride-card-top">
+                      <div className="ride-route-group">
+                        <span className="ride-city">{from}</span>
+                        <ArrowRight
+                          className="ride-arrow"
+                          aria-hidden="true"
+                        />
+                        <span className="ride-city">{to}</span>
+                      </div>
+
+                      <span
+                        className={`ride-status ${
+                          isCompleted ? "completed" : "ended-early"
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+
+                    <div className="ride-card-details">
+                      <div className="detail-item">
+                        <BusFront aria-hidden="true" />
+                        <span>
+                          {ride.busName ? `${ride.busName} · ` : ""}
+                          {busType} bus
+                        </span>
+                      </div>
+
+                      <div className="detail-item">
+                        <CalendarDays aria-hidden="true" />
+                        <span>
+                          {ride.date || "Date not saved"}
+                          {ride.time ? ` · ${ride.time}` : ""}
+                        </span>
+                      </div>
+
+                      {ride.departureTime && (
+                        <div className="detail-item">
+                          <CalendarDays aria-hidden="true" />
+                          <span>
+                            Departure: {ride.departureTime}
+                          </span>
+                        </div>
+                      )}
+
+                      {ride.busId && (
+                        <div className="detail-item">
+                          <Ticket aria-hidden="true" />
+                          <span>Bus / Trip ID: {ride.busId}</span>
+                        </div>
+                      )}
+
+                      {Array.isArray(ride.stops) &&
+                        ride.stops.length > 0 && (
+                          <div className="detail-item ride-history-stops">
+                            <History aria-hidden="true" />
+                            <span>
+                              Stops: {ride.stops.join(" → ")}
+                            </span>
+                          </div>
+                        )}
+
+                      {ride.rating != null && (
+                        <div className="detail-item">
+                          <Star aria-hidden="true" />
+                          <span>
+                            Rated {ride.rating}/5
+                            {ride.feedbackReasons?.length
+                              ? ` · ${ride.feedbackReasons.join(", ")}`
+                              : ""}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="ride-card-footer">
+                      <span className="ride-id">
+                        {ride.id || "Ride record"}
+                      </span>
+
+                      <span className="ride-fare">
+                        <Ticket aria-hidden="true" />
+                        {ride.fare ||
+                          ride.ticketPrice ||
+                          "Fare not saved"}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })
+            )}
           </div>
-        </main>
+        </section>
 
         <PassengerBottomNav />
       </section>

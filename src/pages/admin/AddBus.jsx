@@ -1,42 +1,35 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import AdminBottomNav from "../../components/AdminBottomNav";
-import { addBus } from "../../lib/store";
+import { supabase } from "../../lib/supabase";
 import "../../styles/AddBus.css";
 
-const empty = {
+const createEmptyStop = () => ({
+  station_name: "",
+  arrival_time: "",
+  departure_time: "",
+});
+
+const emptyForm = {
   name: "",
-  operator: "",
-  rating: "4.5",
-  confidence: "80",
-  departTime: "",
-  departStop: "",
-  arriveTime: "",
-  arriveStop: "",
-  price: "",
+  operator: "UPSRTC",
+  trip_label: "",
+  bus_type: "NON AC ORDINARY",
+  depot: "",
+  bus_number: "",
+  service_date: "",
+  source: "",
+  destination: "",
+  fare: "",
 };
 
-/* Turns two 24h "HH:MM" times into a duration label, handling
-   overnight trips (arrival time earlier than departure = next day). */
-const calcDuration = (start, end) => {
-  if (!start || !end) return { minutes: 0, label: "--" };
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return { minutes: 0, label: "--" };
-
-  let diff = eh * 60 + em - (sh * 60 + sm);
-  if (diff <= 0) diff += 24 * 60; // trip rolls past midnight
-
-  const hours = Math.floor(diff / 60);
-  const mins = diff % 60;
-  const label = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  return { minutes: diff, label };
-};
-
-/* Inline icons — kept local to this file so AddBus has zero image
-   requests and matches the BussInn glyph used on the overview page. */
 const BusIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
     <path
       d="M4 16c0 .74.4 1.38 1 1.72V19a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1h8v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1.28c.6-.34 1-.98 1-1.72V6a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v10Z"
       fill="currentColor"
@@ -48,181 +41,488 @@ const BusIcon = ({ className }) => (
 );
 
 const BackIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M15 19l-7-7 7-7"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
 const PlusIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M12 5v14M5 12h14"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    />
   </svg>
 );
 
-const ClockIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="8.2" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M12 8v4.3l3 1.9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-// Admin — add a new bus to the passenger listing (localStorage for now).
 const AddBus = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState(empty);
-  const [error, setError] = useState("");
 
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const [form, setForm] = useState(emptyForm);
 
-  // Duration and ETA are both derived from the departure/arrival time
-  // gap — no manual entry, so they can never drift out of sync with
-  // the times actually picked.
-  const duration = useMemo(() => calcDuration(form.departTime, form.arriveTime), [
-    form.departTime,
-    form.arriveTime,
+  const [stops, setStops] = useState([
+    createEmptyStop(),
+    createEmptyStop(),
   ]);
+
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const setField = (key) => (e) => {
+    setForm((previous) => ({
+      ...previous,
+      [key]: e.target.value,
+    }));
+  };
+
+  const updateStop = (index, key, value) => {
+    setStops((previous) =>
+      previous.map((stop, i) =>
+        i === index
+          ? {
+              ...stop,
+              [key]: value,
+            }
+          : stop
+      )
+    );
+  };
+
+  const addStop = () => {
+    setStops((previous) => [
+      ...previous,
+      createEmptyStop(),
+    ]);
+  };
+
+  const removeStop = (index) => {
+    if (stops.length <= 2) return;
+
+    setStops((previous) =>
+      previous.filter((_, i) => i !== index)
+    );
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.departStop.trim() || !form.arriveStop.trim()) {
-      setError("Bus name, boarding point and drop point are required.");
-      return;
-    }
-    if (!form.departTime || !form.arriveTime) {
-      setError("Pick both a departure time and an arrival time.");
-      return;
-    }
+
     setError("");
 
-        await addBus({
-      ...form,
-      rating: Number(form.rating) || 0,
-      confidence: Number(form.confidence) || 0,
-      price: Number(form.price) || 0,
-      duration: duration.label,
-      eta: duration.label,
-      live: true,
-      accent: "#1a56ff",
-      stops: [
-        { name: form.departStop, time: form.departTime },
-        { name: form.arriveStop, time: form.arriveTime },
-      ],
-    });
+    if (!form.name.trim()) {
+      setError("Enter the bus name.");
+      return;
+    }
 
-    // This is what makes the new bus show up on AdminOverview immediately:
-    // that page listens for "bussinn:buses" and re-reads the store.
-    window.dispatchEvent(new Event("bussinn:buses"));
+    if (!form.trip_label.trim()) {
+      setError("Enter the trip label.");
+      return;
+    }
 
-    navigate({ to: "/admin/overview" });
+    if (!form.bus_type.trim()) {
+      setError("Enter the bus type.");
+      return;
+    }
+
+    if (!form.depot.trim()) {
+      setError("Enter the depot.");
+      return;
+    }
+
+    if (!form.source.trim()) {
+      setError("Enter the source/starting station.");
+      return;
+    }
+
+    if (!form.destination.trim()) {
+      setError("Enter the destination.");
+      return;
+    }
+
+    if (!form.service_date) {
+      setError("Select the service date.");
+      return;
+    }
+
+    if (!form.fare || Number(form.fare) < 0) {
+      setError("Enter a valid fare.");
+      return;
+    }
+
+    if (stops.length < 2) {
+      setError("A bus must have at least two stops.");
+      return;
+    }
+
+    const invalidStop = stops.find(
+      (stop) =>
+        !stop.station_name.trim() ||
+        (!stop.arrival_time && !stop.departure_time)
+    );
+
+    if (invalidStop) {
+      setError(
+        "Every stop needs a station name and at least an arrival or departure time."
+      );
+      return;
+    }
+
+    const formattedStops = stops.map((stop, index) => ({
+      stop_order: index + 1,
+      station_name: stop.station_name.trim(),
+      arrival_time: stop.arrival_time || null,
+      departure_time: stop.departure_time || null,
+    }));
+
+    try {
+      setSaving(true);
+
+      const { data, error: rpcError } = await supabase.rpc(
+        "admin_add_bus",
+        {
+          p_name: form.name.trim(),
+          p_operator: form.operator.trim(),
+          p_trip_label: form.trip_label.trim(),
+          p_bus_type: form.bus_type.trim(),
+          p_depot: form.depot.trim(),
+          p_source: form.source.trim(),
+          p_destination: form.destination.trim(),
+          p_fare: Number(form.fare),
+          p_service_date: form.service_date,
+          p_bus_number: form.bus_number.trim() || null,
+          p_stops: formattedStops,
+        }
+      );
+
+      if (rpcError) {
+        console.error("Add bus error:", rpcError);
+        setError(rpcError.message || "Failed to add bus.");
+        return;
+      }
+
+      console.log("BUS CREATED:", data);
+
+      // Tell other already-open BussInn pages to refresh.
+      window.dispatchEvent(new Event("bussinn:buses"));
+
+      navigate({
+        to: "/admin/overview",
+      });
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while adding the bus.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="addbus-page">
       <div className="addbus-content">
-        {/* Top Header Card — same brand mark as AdminOverview */}
+
+        {/* HEADER */}
         <div className="addbus-topbar-card">
           <div className="addbus-brand-group">
             <BusIcon className="addbus-logo-icon" />
+
             <div className="addbus-title-group">
               <h2>BussInn</h2>
               <p>Your city, connected.</p>
             </div>
           </div>
+
           <button
             type="button"
             className="addbus-back-btn"
-            onClick={() => navigate({ to: "/admin/overview" })}
+            onClick={() =>
+              navigate({
+                to: "/admin/overview",
+              })
+            }
           >
             <BackIcon />
             Back
           </button>
         </div>
 
-        <h2 className="addbus-section-title">Add New Bus</h2>
+        <h2 className="addbus-section-title">
+          Add New Bus
+        </h2>
+
         <p className="addbus-section-subtitle">
-          Fill in the trip details below — it'll appear in your Fleet Management Directory right away.
+          Add complete bus information and its full station schedule.
         </p>
 
-        <form onSubmit={handleSubmit} className="addbus-form-card">
+        <form
+          onSubmit={handleSubmit}
+          className="addbus-form-card"
+        >
+
+          {/* ================= BUS INFORMATION ================= */}
+
+          <h3>Bus Information</h3>
+
           <div className="addbus-form-grid">
-            <div className="form-group full-width">
+
+            <div className="form-group">
               <label>Bus name</label>
-              <input className="field" value={form.name} onChange={set("name")} placeholder="e.g. Bus 3" />
+              <input
+                className="field"
+                value={form.name}
+                onChange={setField("name")}
+                placeholder="e.g. Anand Vihar - Hamirpur"
+              />
             </div>
 
-            <div className="form-group full-width">
-              <label>Bus type / operator</label>
+            <div className="form-group">
+              <label>Operator</label>
               <input
                 className="field"
                 value={form.operator}
-                onChange={set("operator")}
-                placeholder="e.g. Volvo Multi-Axle A/C Sleeper"
+                onChange={setField("operator")}
+                placeholder="e.g. UPSRTC"
               />
             </div>
 
             <div className="form-group">
-              <label>Departure time</label>
+              <label>Trip Label</label>
               <input
-                className="field field-time"
-                type="time"
-                value={form.departTime}
-                onChange={set("departTime")}
+                className="field"
+                value={form.trip_label}
+                onChange={setField("trip_label")}
+                placeholder="e.g. HMR0310"
               />
             </div>
+
             <div className="form-group">
-              <label>Arrival time</label>
+              <label>Bus Type</label>
               <input
-                className="field field-time"
-                type="time"
-                value={form.arriveTime}
-                onChange={set("arriveTime")}
+                className="field"
+                value={form.bus_type}
+                onChange={setField("bus_type")}
+                placeholder="e.g. NON AC ORDINARY"
               />
             </div>
 
             <div className="form-group">
-              <label>Boarding point</label>
-              <input className="field" value={form.departStop} onChange={set("departStop")} placeholder="Swargate" />
+              <label>Depot</label>
+              <input
+                className="field"
+                value={form.depot}
+                onChange={setField("depot")}
+                placeholder="e.g. HAMIRPUR"
+              />
             </div>
+
             <div className="form-group">
-              <label>Drop point</label>
-              <input className="field" value={form.arriveStop} onChange={set("arriveStop")} placeholder="Andheri East" />
+              <label>Bus Number</label>
+              <input
+                className="field"
+                value={form.bus_number}
+                onChange={setField("bus_number")}
+                placeholder="Optional"
+              />
             </div>
 
-            {/* Auto-calculated — not editable, always in sync with the times above */}
-            <div className="form-group full-width">
-              <div className="duration-display">
-                <ClockIcon className="duration-icon" />
-                <div className="duration-text">
-                  <span className="duration-label">Trip duration &amp; ETA (auto-calculated)</span>
-                  <strong className="duration-value">{duration.label}</strong>
-                </div>
-              </div>
+            <div className="form-group">
+              <label>Service Date</label>
+              <input
+                className="field"
+                type="date"
+                value={form.service_date}
+                onChange={setField("service_date")}
+              />
             </div>
 
-            <div className="form-group full-width">
-              <label>Fare (₹)</label>
-              <input className="field" value={form.price} onChange={set("price")} placeholder="559" inputMode="numeric" />
+            <div className="form-group">
+              <label>Fare per seat (₹)</label>
+              <input
+                className="field"
+                type="number"
+                min="0"
+                value={form.fare}
+                onChange={setField("fare")}
+                placeholder="724"
+              />
             </div>
 
+            <div className="form-group">
+              <label>Source</label>
+              <input
+                className="field"
+                value={form.source}
+                onChange={setField("source")}
+                placeholder="ANAND VIHAR"
+              />
+            </div>
 
-            
+            <div className="form-group">
+              <label>Destination</label>
+              <input
+                className="field"
+                value={form.destination}
+                onChange={setField("destination")}
+                placeholder="HAMIRPUR"
+              />
+            </div>
+
           </div>
 
-          {error ? <p className="field-error">{error}</p> : null}
+          {/* ================= STOPS ================= */}
+
+          <div className="stops-editor">
+
+            <div className="stops-editor-header">
+              <div>
+                <h3>Bus Schedule</h3>
+                <p>
+                  Add every station with arrival and departure time.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="btn-add-stop"
+                onClick={addStop}
+              >
+                <PlusIcon />
+                Add Stop
+              </button>
+            </div>
+
+            <div className="stop-table">
+
+              <div className="stop-table-header">
+                <span>#</span>
+                <span>Station Name</span>
+                <span>Arrival</span>
+                <span>Departure</span>
+                <span></span>
+              </div>
+
+              {stops.map((stop, index) => (
+
+                <div
+                  className="stop-table-row"
+                  key={index}
+                >
+
+                  <span className="stop-number">
+                    {index + 1}
+                  </span>
+
+                  <input
+                    className="field"
+                    value={stop.station_name}
+                    onChange={(e) =>
+                      updateStop(
+                        index,
+                        "station_name",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Station name"
+                  />
+
+                  <input
+                    className="field"
+                    type="time"
+                    value={stop.arrival_time}
+                    onChange={(e) =>
+                      updateStop(
+                        index,
+                        "arrival_time",
+                        e.target.value
+                      )
+                    }
+                  />
+
+                  <input
+                    className="field"
+                    type="time"
+                    value={stop.departure_time}
+                    onChange={(e) =>
+                      updateStop(
+                        index,
+                        "departure_time",
+                        e.target.value
+                      )
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    className="btn-remove-stop"
+                    onClick={() =>
+                      removeStop(index)
+                    }
+                    disabled={stops.length <= 2}
+                  >
+                    ×
+                  </button>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </div>
+
+          {error && (
+            <p className="field-error">
+              {error}
+            </p>
+          )}
+
+          {/* ================= ACTIONS ================= */}
 
           <div className="addbus-actions-row">
-            <button type="submit" className="btn-submit-addbus">
+
+            <button
+              type="submit"
+              className="btn-submit-addbus"
+              disabled={saving}
+            >
               <PlusIcon />
-              Add Bus to Listing
+
+              {saving
+                ? "Adding Bus..."
+                : "Add Bus to Listing"}
             </button>
+
             <button
               type="button"
               className="btn-cancel-addbus"
-              onClick={() => navigate({ to: "/admin/overview" })}
+              disabled={saving}
+              onClick={() =>
+                navigate({
+                  to: "/admin/overview",
+                })
+              }
             >
               Cancel
             </button>
+
           </div>
+
         </form>
       </div>
 

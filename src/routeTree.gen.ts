@@ -24,6 +24,7 @@ import { Route as RedeemCoinsRouteImport } from './routes/redeem-coins'
 import { Route as ReferEarnRouteImport } from './routes/refer-earn'
 import { Route as RoleSelectionRouteImport } from './routes/role-selection'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as TrackbusRouteImport } from './routes/trackbus'
 import { Route as VerifyOtpRouteImport } from './routes/verify-otp'
 import { Route as AdminAddBusRouteImport } from './routes/admin.add-bus'
 import { Route as AdminAddRouteRouteImport } from './routes/admin.add-route'
@@ -119,6 +120,11 @@ const RoleSelectionRoute = RoleSelectionRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackbusRoute = TrackbusRouteImport.update({
+  id: '/trackbus',
+  path: '/trackbus',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyOtpRoute = VerifyOtpRouteImport.update({
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/refer-earn': typeof ReferEarnRoute
   '/role-selection': typeof RoleSelectionRoute
   '/sign-in': typeof SignInRoute
+  '/trackbus': typeof TrackbusRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/admin/add-bus': typeof AdminAddBusRoute
   '/admin/add-route': typeof AdminAddRouteRoute
@@ -281,6 +288,7 @@ export interface FileRoutesByTo {
   '/refer-earn': typeof ReferEarnRoute
   '/role-selection': typeof RoleSelectionRoute
   '/sign-in': typeof SignInRoute
+  '/trackbus': typeof TrackbusRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/admin/add-bus': typeof AdminAddBusRoute
   '/admin/add-route': typeof AdminAddRouteRoute
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/refer-earn': typeof ReferEarnRoute
   '/role-selection': typeof RoleSelectionRoute
   '/sign-in': typeof SignInRoute
+  '/trackbus': typeof TrackbusRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/admin/add-bus': typeof AdminAddBusRoute
   '/admin/add-route': typeof AdminAddRouteRoute
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/refer-earn'
     | '/role-selection'
     | '/sign-in'
+    | '/trackbus'
     | '/verify-otp'
     | '/admin/add-bus'
     | '/admin/add-route'
@@ -398,6 +408,7 @@ export interface FileRouteTypes {
     | '/refer-earn'
     | '/role-selection'
     | '/sign-in'
+    | '/trackbus'
     | '/verify-otp'
     | '/admin/add-bus'
     | '/admin/add-route'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/refer-earn'
     | '/role-selection'
     | '/sign-in'
+    | '/trackbus'
     | '/verify-otp'
     | '/admin/add-bus'
     | '/admin/add-route'
@@ -475,6 +487,7 @@ export interface RootRouteChildren {
   ReferEarnRoute: typeof ReferEarnRoute
   RoleSelectionRoute: typeof RoleSelectionRoute
   SignInRoute: typeof SignInRoute
+  TrackbusRoute: typeof TrackbusRoute
   VerifyOtpRoute: typeof VerifyOtpRoute
   AdminAddBusRoute: typeof AdminAddBusRoute
   AdminAddRouteRoute: typeof AdminAddRouteRoute
@@ -603,6 +616,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trackbus': {
+      id: '/trackbus'
+      path: '/trackbus'
+      fullPath: '/trackbus'
+      preLoaderRoute: typeof TrackbusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify-otp': {
@@ -771,6 +791,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReferEarnRoute: ReferEarnRoute,
   RoleSelectionRoute: RoleSelectionRoute,
   SignInRoute: SignInRoute,
+  TrackbusRoute: TrackbusRoute,
   VerifyOtpRoute: VerifyOtpRoute,
   AdminAddBusRoute: AdminAddBusRoute,
   AdminAddRouteRoute: AdminAddRouteRoute,
