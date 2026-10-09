@@ -1378,3 +1378,104 @@
   }
 
 }
+
+.demo-bus-card {
+  border: 1px solid #cbdcff;
+  background: linear-gradient(160deg, #ffffff 0%, #f5f8ff 100%);
+}
+
+.demo-bus-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: #eaf1ff;
+  color: #2458d3;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.demo-bus-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2458d3;
+  box-shadow: 0 0 0 4px #2458d31a;
+}
+
+.demo-bus-route {
+  margin: 0 16px;
+  padding: 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #e5eaf4;
+  border-bottom: 1px solid #e5eaf4;
+}
+
+.demo-bus-stop {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-bus-stop > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.demo-bus-stop small {
+  color: #8491a6;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.demo-bus-stop strong {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.demo-bus-stop-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border: 3px solid #dbeafe;
+  border-radius: 50%;
+}
+
+.demo-bus-stop-dot.start {
+  background: #2563eb;
+}
+
+.demo-bus-stop-dot.end {
+  background: #16a34a;
+}
+
+.demo-bus-route-connector {
+  flex: 1;
+  min-width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 2px dashed #a8bff5;
+}
+
+.demo-bus-route-connector span {
+  width: 5px;
+  height: 5px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: #7e9fe9;
+}
+
+.demo-bus-description {
+  margin: 13px 16px;
+  color: #68778e;
+  font-size: 11px;
+  line-height: 1.6;
+}

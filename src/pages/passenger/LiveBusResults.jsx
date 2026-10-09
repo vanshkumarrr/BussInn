@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
-
 import {
   BusFront,
-  Building2,
   CalendarDays,
   Navigation,
   Route as RouteIcon,
@@ -12,20 +10,23 @@ import {
 
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import { supabase } from "../../lib/supabase";
-
 import "../../styles/LiveBusResults.css";
 
+const ORDINARY_BUS_IMAGE =
+  "https://www.onlineupsrtc.co.in/assets/icons/Ordinary.png";
 
-/* =========================================================
-   HELPERS
-   ========================================================= */
+const AC_BUS_IMAGE =
+  "https://www.onlineupsrtc.co.in/assets/icons/bus_ac_janrath_2x2.png";
+
+const DEMO_STOPS = [
+  { id: "demo-s", stop_order: 1, station_name: "Stop S" },
+  { id: "demo-a", stop_order: 2, station_name: "Stop A" },
+  { id: "demo-b", stop_order: 3, station_name: "Stop B" },
+  { id: "demo-c", stop_order: 4, station_name: "Stop C" },
+];
 
 const normalize = (value = "") =>
-  String(value)
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, " ");
-
+  String(value).trim().toUpperCase().replace(/\s+/g, " ");
 
 const formatTime = (time) => {
   if (!time) return "--";
@@ -33,21 +34,19 @@ const formatTime = (time) => {
   const [hours, minutes] = String(time).split(":");
   const hour = Number(hours);
 
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const hour12 = hour % 12 || 12;
+  if (!Number.isFinite(hour) || !minutes) return String(time);
 
-  return `${hour12}:${minutes} ${suffix}`;
+  return `${hour % 12 || 12}:${minutes} ${
+    hour >= 12 ? "PM" : "AM"
+  }`;
 };
-
 
 const formatDate = (date) => {
   if (!date) return "";
 
   const parsed = new Date(`${date}T00:00:00`);
 
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
+  if (Number.isNaN(parsed.getTime())) return date;
 
   return parsed.toLocaleDateString("en-IN", {
     weekday: "short",
@@ -57,164 +56,44 @@ const formatDate = (date) => {
   });
 };
 
-
-const timeToMinutes = (time) => {
-  if (!time) return null;
-
-  const [hours, minutes] = String(time)
-    .split(":")
-    .map(Number);
-
-  return hours * 60 + minutes;
-};
-
-
-const calculateDuration = (start, end) => {
-  if (!start || !end) return "--";
-
-  let startMinutes = timeToMinutes(start);
-  let endMinutes = timeToMinutes(end);
-
-  if (
-    startMinutes === null ||
-    endMinutes === null
-  ) {
-    return "--";
-  }
-
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
-  }
-
-  const difference = endMinutes - startMinutes;
-
-  const hours = Math.floor(difference / 60);
-  const minutes = difference % 60;
-
-  if (hours === 0) {
-    return `${minutes}m`;
-  }
-
-  if (minutes === 0) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${minutes}m`;
-};
-
-
-const getStopTime = (stop) => {
-  if (!stop) return null;
-
-  return (
-    stop.departure_time ||
-    stop.arrival_time ||
-    null
-  );
-};
-
-
-/* =========================================================
-   BUS CATEGORY IMAGE
-   ========================================================= */
-
-const ORDINARY_BUS_IMAGE =
-  "https://www.onlineupsrtc.co.in/assets/icons/Ordinary.png";
-
-const AC_BUS_IMAGE =
-  "https://www.onlineupsrtc.co.in/assets/icons/bus_ac_janrath_2x2.png";
-
-
-const isAcBus = (bus) => {
+const getBusImage = (bus) => {
   const type = String(
-    bus?.bus_type ||
-      bus?.bus_category ||
-      bus?.category ||
-      ""
+    bus?.bus_type || bus?.bus_category || bus?.category || ""
   ).toLowerCase();
 
-  /*
-   * Important:
-   * "NON AC ORDINARY" must NOT be detected as AC.
-   */
-  return (
-    type.includes("ac") &&
+  return type.includes("ac") &&
     !type.includes("non ac") &&
     !type.includes("non-ac")
-  );
-};
-
-
-const getBusCategoryImage = (bus) => {
-  return isAcBus(bus)
     ? AC_BUS_IMAGE
     : ORDINARY_BUS_IMAGE;
 };
 
-
-const getBusCategoryLabel = (bus) => {
-  return isAcBus(bus)
-    ? "AC"
-    : "ORDINARY";
-};
-
-
-/* =========================================================
-   MAIN COMPONENT
-   ========================================================= */
-
 export default function LiveBusResults() {
   const search = useSearch({ strict: false });
 
-
-  /* =======================================================
-     SEARCH PARAMETERS
-     ======================================================= */
-
   const from =
-    search?.from ||
-    search?.source ||
-    search?.boarding ||
-    "";
+    search?.from || search?.source || search?.boarding || "";
 
   const to =
-    search?.to ||
-    search?.destination ||
-    search?.drop ||
-    "";
+    search?.to || search?.destination || search?.drop || "";
 
-  const selectedDate =
-    search?.date ||
-    search?.serviceDate ||
-    "";
-
-
-  /* =======================================================
-     STATE
-     ======================================================= */
+  const date = search?.date || search?.serviceDate || "";
 
   const [buses, setBuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedRoute, setSelectedRoute] = useState(null);
+  const [liveLocations, setLiveLocations] = useState({});
 
-  const [selectedRoute, setSelectedRoute] =
-    useState(null);
+  useEffect(() => {
+    let mounted = true;
 
-  const [liveLocations, setLiveLocations] =
-    useState({});
-
-
-  /* =======================================================
-     FETCH BUSES
-     ======================================================= */
-
-  const loadBuses = async () => {
-    try {
+    async function loadBuses() {
       setLoading(true);
       setError("");
 
-      const { data, error: fetchError } =
-        await supabase
+      try {
+        const { data, error: fetchError } = await supabase
           .from("buses")
           .select(`
             *,
@@ -228,113 +107,74 @@ export default function LiveBusResults() {
           `)
           .eq("is_active", true);
 
-      if (fetchError) {
-        console.error(
-          "Supabase bus error:",
-          fetchError
-        );
+        if (fetchError) throw fetchError;
 
-        setError(
-          "Unable to load buses. Please try again."
-        );
+        if (!mounted) return;
 
-        setBuses([]);
-        return;
+        setBuses(
+          (data || []).map((bus) => ({
+            ...bus,
+            bus_schedule: [...(bus.bus_schedule || [])].sort(
+              (a, b) => Number(a.stop_order) - Number(b.stop_order)
+            ),
+          }))
+        );
+      } catch (err) {
+        console.error("Unable to load buses:", err);
+
+        if (mounted) {
+          setError(
+            "Regular buses could not be loaded. You can still use the Demo Bus."
+          );
+          setBuses([]);
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      const formattedBuses =
-        (data || []).map((bus) => ({
-          ...bus,
-
-          bus_schedule: [
-            ...(bus.bus_schedule || []),
-          ].sort(
-            (a, b) =>
-              Number(a.stop_order) -
-              Number(b.stop_order)
-          ),
-        }));
-
-      setBuses(formattedBuses);
-
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        "Something went wrong while loading buses."
-      );
-
-      setBuses([]);
-
-    } finally {
-      setLoading(false);
     }
-  };
 
-
-  /* =======================================================
-     INITIAL LOAD
-     ======================================================= */
-
-  useEffect(() => {
     loadBuses();
 
-    const refresh = () => {
-      loadBuses();
-    };
+    const refresh = () => loadBuses();
 
-    window.addEventListener(
-      "bussinn:buses",
-      refresh
-    );
+    window.addEventListener("bussinn:buses", refresh);
 
     return () => {
-      window.removeEventListener(
-        "bussinn:buses",
-        refresh
-      );
+      mounted = false;
+      window.removeEventListener("bussinn:buses", refresh);
     };
   }, []);
 
-
-  /* =======================================================
-     LIVE LOCATION
-     ======================================================= */
-
   useEffect(() => {
-    const loadLiveLocations = async () => {
-      const {
-        data,
-        error: locationError,
-      } = await supabase
+    let mounted = true;
+
+    async function loadLiveLocations() {
+      const { data, error: locationError } = await supabase
         .from("live_locations")
         .select("*");
 
       if (locationError) {
-        console.warn(
-          "Live location error:",
-          locationError
-        );
+        console.warn("Live location error:", locationError);
         return;
       }
 
-      const locationMap = {};
+      if (!mounted) return;
+
+      const locations = {};
 
       (data || []).forEach((location) => {
         if (location.bus_id) {
-          locationMap[location.bus_id] =
-            location;
+          locations[location.bus_id] = location;
         }
       });
 
-      setLiveLocations(locationMap);
-    };
+      setLiveLocations(locations);
+    }
 
     loadLiveLocations();
 
-
     const channel = supabase
-      .channel("bussinn-live-locations")
+      .channel("bussinn-results-live-locations")
       .on(
         "postgres_changes",
         {
@@ -343,904 +183,437 @@ export default function LiveBusResults() {
           table: "live_locations",
         },
         (payload) => {
-          const newLocation = payload.new;
+          const location = payload.new;
 
-          if (!newLocation?.bus_id) {
-            return;
-          }
+          if (!location?.bus_id) return;
 
           setLiveLocations((previous) => ({
             ...previous,
-
-            [newLocation.bus_id]:
-              newLocation,
+            [location.bus_id]: location,
           }));
         }
       )
       .subscribe();
 
-
     return () => {
+      mounted = false;
       supabase.removeChannel(channel);
     };
   }, []);
 
+  const matchingBuses = useMemo(() => {
+    const source = normalize(from);
+    const destination = normalize(to);
 
-  /* =======================================================
-     FILTER BUSES
-     ======================================================= */
+    if (!source || !destination) return [];
 
+    return buses.filter((bus) => {
+      const stops = [...(bus.bus_schedule || [])].sort(
+        (a, b) => Number(a.stop_order) - Number(b.stop_order)
+      );
 
-const matchingBuses = useMemo(() => {
-  const fromValue = normalize(from);
-  const toValue = normalize(to);
+      if (stops.length) {
+        const startIndex = stops.findIndex(
+          (stop) => normalize(stop.station_name) === source
+        );
 
-  // Don't show every bus if either search field is empty.
-  if (!fromValue || !toValue) return [];
+        const endIndex = stops.findIndex(
+          (stop) => normalize(stop.station_name) === destination
+        );
 
-  return buses.filter((bus) => {
+        return (
+          startIndex !== -1 &&
+          endIndex !== -1 &&
+          startIndex < endIndex
+        );
+      }
+
+      return (
+        normalize(bus.source) === source &&
+        normalize(bus.destination) === destination
+      );
+    });
+  }, [buses, from, to]);
+
+  const getRouteStops = (bus) => {
+    if (bus?.demo) return DEMO_STOPS;
+
     const stops = [...(bus.bus_schedule || [])].sort(
       (a, b) => Number(a.stop_order) - Number(b.stop_order)
     );
 
-    // The schedule is the source of truth for intermediate stops.
-    if (stops.length > 0) {
-      const fromIndex = stops.findIndex(
-        (stop) => normalize(stop.station_name) === fromValue
-      );
+    const startIndex = stops.findIndex(
+      (stop) => normalize(stop.station_name) === normalize(from)
+    );
 
-      const toIndex = stops.findIndex(
-        (stop) => normalize(stop.station_name) === toValue
-      );
+    const endIndex = stops.findIndex(
+      (stop) => normalize(stop.station_name) === normalize(to)
+    );
 
-      // Both stops must exist, and the destination must come
-      // after the boarding point in the bus's route.
-      return (
-        fromIndex !== -1 &&
-        toIndex !== -1 &&
-        fromIndex < toIndex
-      );
+    if (startIndex >= 0 && endIndex > startIndex) {
+      return stops.slice(startIndex, endIndex + 1);
     }
 
-    // Fallback only for buses without a schedule.
-    // Never include unrelated buses.
-    return (
-      normalize(bus.source) === fromValue &&
-      normalize(bus.destination) === toValue
-    );
-  });
-}, [buses, from, to]);
+    return stops;
+  };
 
-
-
-  /* =======================================================
-     GET BOARDING / DESTINATION STOPS
-     ======================================================= */
-
-
-const getRouteStops = (bus) => {
-  const stops = [...(bus.bus_schedule || [])].sort(
-    (a, b) => Number(a.stop_order) - Number(b.stop_order)
-  );
-
-  const normalizedFrom = normalize(from);
-  const normalizedTo = normalize(to);
-
-  const fromIndex = stops.findIndex(
-    (stop) => normalize(stop.station_name) === normalizedFrom
-  );
-
-  const toIndex = stops.findIndex(
-    (stop) => normalize(stop.station_name) === normalizedTo
-  );
-
-  if (
-    fromIndex !== -1 &&
-    toIndex !== -1 &&
-    fromIndex < toIndex
-  ) {
-    return stops.slice(fromIndex, toIndex + 1);
-  }
-
-  // A bus without a schedule is allowed only for an exact
-  // source-to-destination match.
-  if (
-    stops.length === 0 &&
-    normalize(bus.source) === normalizedFrom &&
-    normalize(bus.destination) === normalizedTo
-  ) {
-    return [
-      {
-        id: `${bus.id}-source`,
-        stop_order: 1,
-        station_name: bus.source,
-        departure_time: null,
-        arrival_time: null,
-      },
-      {
-        id: `${bus.id}-destination`,
-        stop_order: 2,
-        station_name: bus.destination,
-        departure_time: null,
-        arrival_time: null,
-      },
-    ];
-  }
-
-  return [];
-};
-
-  /* =======================================================
-     LOADING
-     ======================================================= */
-
-  if (loading) {
-    return (
-      <div className="lbr-page">
-
-        <div className="lbr-loading">
-
-          <div className="lbr-loading-icon">
-            <BusFront
-              size={30}
-              strokeWidth={2}
-            />
-          </div>
-
-          <h2>
-            Finding buses...
-          </h2>
-
-          <p>
-            Checking available buses
-            and routes
-          </p>
-
-        </div>
-
-      </div>
-    );
-  }
-
-
-  /* =======================================================
-     MAIN UI
-     ======================================================= */
+  const demoBus = {
+    id: "demo-bus",
+    demo: true,
+    name: "BussInn Demo Bus",
+  };
 
   return (
     <div className="lbr-page">
-
-      {/* ==================================================
-          HEADER
-      ================================================== */}
-
       <header className="lbr-header">
-
         <div>
-          <h1>
-            Live Buses
-          </h1>
-
+          <h1>Live Buses</h1>
           <p>
-            {from || "Boarding"}{" "}
-            <span>→</span>{" "}
-            {to || "Destination"}
+            {from || "Boarding"} → {to || "Destination"}
           </p>
         </div>
-
-
         <div className="lbr-live-pill">
-
           <span />
-
           LIVE
-
         </div>
-
       </header>
 
-
-      {/* ==================================================
-          SEARCH SUMMARY
-      ================================================== */}
-
       <section className="lbr-search-summary">
-
         <div className="lbr-search-route">
-
           <div className="lbr-place">
-
             <span className="lbr-place-dot blue" />
-
             <div>
-              <small>
-                FROM
-              </small>
-
-              <strong>
-                {from ||
-                  "Any boarding point"}
-              </strong>
+              <small>FROM</small>
+              <strong>{from || "Any boarding point"}</strong>
             </div>
-
           </div>
 
-
-          <div className="lbr-route-arrow">
-            →
-          </div>
-
+          <div className="lbr-route-arrow">→</div>
 
           <div className="lbr-place">
-
             <span className="lbr-place-dot red" />
-
             <div>
-              <small>
-                TO
-              </small>
-
-              <strong>
-                {to ||
-                  "Any destination"}
-              </strong>
+              <small>TO</small>
+              <strong>{to || "Any destination"}</strong>
             </div>
-
           </div>
-
         </div>
 
-
-        {selectedDate && (
+        {date && (
           <div className="lbr-date">
-
-            <CalendarDays
-              size={14}
-              strokeWidth={2}
-            />
-
-            {formatDate(
-              selectedDate
-            )}
-
+            <CalendarDays size={14} />
+            {formatDate(date)}
           </div>
         )}
-
       </section>
 
-
-      {/* ==================================================
-          ERROR
-      ================================================== */}
-
-      {error && (
-        <div className="lbr-error">
-
-          <strong>
-            Something went wrong
-          </strong>
-
-          <span>
-            {error}
-          </span>
-
-          <button
-            type="button"
-            onClick={loadBuses}
-          >
-            Try again
-          </button>
-
+      {loading && (
+        <div className="lbr-loading">
+          <div className="lbr-loading-icon">
+            <BusFront size={30} />
+          </div>
+          <h2>Finding buses...</h2>
+          <p>Checking available buses and routes</p>
         </div>
       )}
 
+      {error && (
+        <div className="lbr-error">
+          <p>{error}</p>
+        </div>
+      )}
 
-      {/* ==================================================
-          NO BUSES
-      ================================================== */}
-
-      {!error &&
-        matchingBuses.length === 0 && (
-          <div className="lbr-empty">
-
-            <div className="lbr-empty-icon">
-              <BusFront
-                size={27}
-                strokeWidth={1.8}
-              />
-            </div>
-
-            <h2>
-              No buses found
-            </h2>
-
-            <p>
-              We couldn't find any
-              buses for{" "}
-              <strong>
-                {from ||
-                  "your boarding point"}
-              </strong>{" "}
-              to{" "}
-              <strong>
-                {to ||
-                  "your destination"}
-              </strong>
-
-              {selectedDate
-                ? ` on ${formatDate(
-                    selectedDate
-                  )}.`
-                : "."}
-            </p>
-
+      {!loading && matchingBuses.length === 0 && (
+        <div className="lbr-empty">
+          <div className="lbr-empty-icon">
+            <BusFront size={27} />
           </div>
-        )}
-
-
-      {/* ==================================================
-          BUS LIST
-      ================================================== */}
+          <h2>No regular buses found</h2>
+          <p>
+            No regular buses found for {from || "your boarding point"} to{" "}
+            {to || "your destination"}. Try the Demo Bus below.
+          </p>
+        </div>
+      )}
 
       <main className="lbr-list">
+        {/* Always shown, regardless of the passenger's search */}
+        <article className="lbr-bus-card">
+          <div className="lbr-card-header">
+            <div className="lbr-card-title-area">
+              <span className="demo-bus-badge">
+                <span className="demo-bus-badge-dot" />
+                LIVE TRACKING DEMO
+              </span>
+              <h2>BussInn Demo Bus</h2>
+              <p>Interactive GPS demonstration</p>
+            </div>
 
+            <div className="lbr-trip-area">
+              <div className="lbr-trip">DEMO</div>
+              <img
+                src={ORDINARY_BUS_IMAGE}
+                alt="Demo bus"
+                className="lbr-bus-category-image"
+              />
+              <span className="lbr-category-label">DEMO BUS</span>
+            </div>
+          </div>
+
+          <div className="demo-bus-route">
+            <div className="demo-bus-stop">
+              <span className="demo-bus-stop-dot start" />
+              <div>
+                <small>STARTING POINT</small>
+                <strong>Stop S</strong>
+              </div>
+            </div>
+
+            <div className="demo-bus-route-connector">
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <div className="demo-bus-stop">
+              <span className="demo-bus-stop-dot end" />
+              <div>
+                <small>DESTINATION</small>
+                <strong>Stop C</strong>
+              </div>
+            </div>
+          </div>
+
+          <p className="demo-bus-description">
+            Demo route: Stop S → Stop A → Stop B → Stop C.
+            This bus appears in every search.
+          </p>
+
+          <div className="lbr-info-row">
+            <div>
+              <small>Route</small>
+              <strong>Stop S → Stop C</strong>
+            </div>
+            <div>
+              <small>Stops</small>
+              <strong>4</strong>
+            </div>
+            <div>
+              <small>Type</small>
+              <strong>Demo</strong>
+            </div>
+          </div>
+
+          <div className="lbr-actions">
+            <button
+              type="button"
+              className="lbr-route-button"
+              onClick={() => setSelectedRoute(demoBus)}
+            >
+              <RouteIcon size={17} />
+              <span>Route</span>
+            </button>
+
+            <Link
+              to="/trackbus"
+              search={{
+                busId: "demo-bus",
+                from: "Stop S",
+                to: "Stop C",
+                date,
+              }}
+              className="lbr-track-button"
+            >
+              <Navigation size={17} />
+              <span>Track Demo Bus</span>
+            </Link>
+          </div>
+        </article>
+
+        {/* Real buses still use the passenger's selected route */}
         {matchingBuses.map((bus) => {
-
-          const routeStops =
-            getRouteStops(bus);
-
-          const firstStop =
-            routeStops[0];
-
-          const lastStop =
-            routeStops[
-              routeStops.length - 1
-            ];
-
-          const liveLocation =
-            liveLocations[bus.id];
-
-          const isLive =
-            Boolean(liveLocation);
-
-          const duration =
-            calculateDuration(
-              getStopTime(
-                firstStop
-              ),
-              lastStop?.arrival_time ||
-                lastStop?.departure_time
-            );
-
+          const stops = getRouteStops(bus);
+          const firstStop = stops[0];
+          const lastStop = stops[stops.length - 1];
+          const isLive = Boolean(liveLocations[bus.id]);
 
           return (
-            <article
-              key={bus.id}
-              className="lbr-bus-card"
-            >
-
-              {/* ==========================================
-                  BUS HEADER
-              ========================================== */}
-
+            <article key={bus.id} className="lbr-bus-card">
               <div className="lbr-card-header">
-
                 <div className="lbr-card-title-area">
-
-                  <h2>
-                    {bus.name ||
-                      bus.bus_name ||
-                      "UPSRTC Bus"}
-                  </h2>
-
-                  <p>
-                    {bus.operator ||
-                      "UPSRTC"}
-
-                    {bus.bus_type && (
-                      <>
-                        {" "}
-                        •{" "}
-                        {bus.bus_type}
-                      </>
-                    )}
-                  </p>
-
+                  <h2>{bus.name || bus.bus_name || "UPSRTC Bus"}</h2>
+                  <p>{bus.operator || "UPSRTC"}</p>
                 </div>
-
-
-                {/* TRIP LABEL + BUS IMAGE */}
 
                 <div className="lbr-trip-area">
-
-                  <div className="lbr-trip">
-                    {bus.trip_label ||
-                      "BUS"}
-                  </div>
-
                   <img
-                    src={getBusCategoryImage(
-                      bus
-                    )}
-                    alt={`${getBusCategoryLabel(
-                      bus
-                    )} bus`}
+                    src={getBusImage(bus)}
+                    alt="Bus category"
                     className="lbr-bus-category-image"
-                    onError={(event) => {
-                      event.currentTarget.src =
-                        ORDINARY_BUS_IMAGE;
-                    }}
                   />
-
-                  <span className="lbr-category-label">
-                    {getBusCategoryLabel(
-                      bus
-                    )}
-                  </span>
-
                 </div>
-
               </div>
-
-
-              {/* ==========================================
-                  DEPOT / BUS NUMBER
-              ========================================== */}
-
-              {(bus.depot ||
-                bus.bus_number) && (
-
-                <div className="lbr-meta-row">
-
-                  {bus.depot && (
-                    <span className="lbr-meta-item">
-
-                      <Building2
-                        size={14}
-                        strokeWidth={2}
-                      />
-
-                      {bus.depot}
-
-                    </span>
-                  )}
-
-
-                  {bus.bus_number && (
-                    <span className="lbr-meta-item">
-
-                      <BusFront
-                        size={14}
-                        strokeWidth={2}
-                      />
-
-                      {bus.bus_number}
-
-                    </span>
-                  )}
-
-                </div>
-
-              )}
-
-
-              {/* ==========================================
-                  ROUTE
-              ========================================== */}
 
               <div className="lbr-route-box">
-
                 <div className="lbr-route-station">
-
-                  <span className="lbr-route-label">
-                    BOARDING
-                  </span>
-
-                  <strong>
-                    {firstStop?.station_name ||
-                      bus.source}
-                  </strong>
-
+                  <span className="lbr-route-label">BOARDING</span>
+                  <strong>{firstStop?.station_name || bus.source}</strong>
                   <span className="lbr-route-time">
                     {formatTime(
-                      firstStop?.departure_time ||
-                        firstStop?.arrival_time
+                      firstStop?.departure_time || firstStop?.arrival_time
                     )}
                   </span>
-
                 </div>
-
 
                 <div className="lbr-route-middle">
-
-                  <span>
-                    {duration}
-                  </span>
-
                   <div className="lbr-route-line">
-
                     <span />
-
                     <div />
-
                     <span />
-
                   </div>
-
-                  <small>
-                    {routeStops.length} stops
-                  </small>
-
+                  <small>{stops.length} stops</small>
                 </div>
-
 
                 <div className="lbr-route-station right">
-
-                  <span className="lbr-route-label">
-                    ARRIVAL
-                  </span>
-
-                  <strong>
-                    {lastStop?.station_name ||
-                      bus.destination}
-                  </strong>
-
+                  <span className="lbr-route-label">ARRIVAL</span>
+                  <strong>{lastStop?.station_name || bus.destination}</strong>
                   <span className="lbr-route-time">
                     {formatTime(
-                      lastStop?.arrival_time ||
-                        lastStop?.departure_time
+                      lastStop?.arrival_time || lastStop?.departure_time
                     )}
                   </span>
-
                 </div>
-
               </div>
-
-
-              {/* ==========================================
-                  INFO
-              ========================================== */}
 
               <div className="lbr-info-row">
-
                 <div>
-
-                  <small>
-                    Fare
-                  </small>
-
-                  <strong>
-                    ₹{bus.fare || 0}
-                  </strong>
-
+                  <small>Fare</small>
+                  <strong>₹{bus.fare || 0}</strong>
                 </div>
-
-
                 <div>
-
-                  <small>
-                    Stops
-                  </small>
-
-                  <strong>
-                    {routeStops.length}
-                  </strong>
-
+                  <small>Stops</small>
+                  <strong>{stops.length}</strong>
                 </div>
-
-
                 <div>
-
-                  <small>
-                    Status
-                  </small>
-
-                  <strong
-                    className={
-                      isLive
-                        ? "lbr-green"
-                        : "lbr-gray"
-                    }
-                  >
-                    {isLive
-                      ? "● Live"
-                      : "Scheduled"}
+                  <small>Status</small>
+                  <strong className={isLive ? "lbr-green" : "lbr-gray"}>
+                    {isLive ? "● Live" : "Scheduled"}
                   </strong>
-
                 </div>
-
               </div>
 
-
-              {/* ==========================================
-                  ACTION BUTTONS
-              ========================================== */}
-
               <div className="lbr-actions">
-
                 <button
                   type="button"
                   className="lbr-route-button"
-                  onClick={() =>
-                    setSelectedRoute(
-                      bus
-                    )
-                  }
+                  onClick={() => setSelectedRoute(bus)}
                 >
-
-                  <RouteIcon
-                    size={17}
-                    strokeWidth={2.2}
-                  />
-
-                  <span>
-                    Route
-                  </span>
-
+                  <RouteIcon size={17} />
+                  <span>Route</span>
                 </button>
 
-
                 <Link
-  to="/trackbus"
-  search={{
-    busId: String(bus.id),
-    from: from,
-    to: to,
-    date: selectedDate,
-  }}
-  className="lbr-track-button"
->
-  <Navigation
-    size={17}
-    strokeWidth={2.2}
-  />
-
-  <span>
-    Track
-  </span>
-</Link>
-
+                  to="/trackbus"
+                  search={{ busId: String(bus.id), from, to, date }}
+                  className="lbr-track-button"
+                >
+                  <Navigation size={17} />
+                  <span>Track</span>
+                </Link>
               </div>
-
-
-              {/* ==========================================
-                  LIVE LOCATION
-              ========================================== */}
-
-              {isLive && (
-                <div className="lbr-live-location">
-
-                  <span className="lbr-pulse" />
-
-                  <span>
-                    {liveLocation.location_name ||
-                      "Bus is currently live"}
-                  </span>
-
-                  {liveLocation.speed !==
-                    null &&
-                    liveLocation.speed !==
-                      undefined && (
-
-                    <span>
-                      {Math.round(
-                        Number(
-                          liveLocation.speed
-                        )
-                      )}{" "}
-                      km/h
-                    </span>
-
-                  )}
-
-                </div>
-              )}
-
             </article>
           );
         })}
-
       </main>
 
-
-      {/* ==================================================
-          ROUTE MODAL
-      ================================================== */}
-
       {selectedRoute && (
-
         <div
           className="lbr-modal-overlay"
-          onClick={() =>
-            setSelectedRoute(null)
-          }
+          onClick={() => setSelectedRoute(null)}
         >
-
           <div
             className="lbr-route-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            onClick={(event) => event.stopPropagation()}
           >
-
-            {/* MODAL HEADER */}
-
             <div className="lbr-modal-header">
-
               <div>
-
-                <span>
-                  BUS ROUTE
-                </span>
-
+                <span>BUS ROUTE</span>
                 <h2>
-                  {selectedRoute.trip_label ||
-                    selectedRoute.name}
+                  {selectedRoute.demo
+                    ? "BussInn Demo Bus"
+                    : selectedRoute.name || selectedRoute.bus_name || "Bus Route"}
                 </h2>
-
               </div>
-
 
               <button
                 type="button"
                 className="lbr-modal-close"
-                onClick={() =>
-                  setSelectedRoute(null)
-                }
+                onClick={() => setSelectedRoute(null)}
                 aria-label="Close route"
               >
-
-                <X
-                  size={20}
-                  strokeWidth={2.2}
-                />
-
+                <X size={20} />
               </button>
-
             </div>
-
-
-            {/* ROUTE STOPS */}
 
             <div className="lbr-modal-route">
-
-              {getRouteStops(
-                selectedRoute
-              ).map(
-                (
-                  stop,
-                  index,
-                  array
-                ) => {
-
-                  const isFirst =
-                    index === 0;
-
-                  const isLast =
-                    index ===
-                    array.length - 1;
-
-
-                  return (
-                    <div
-                      key={
-                        stop.id ||
-                        stop.stop_order ||
-                        index
+              {getRouteStops(selectedRoute).map((stop, index, allStops) => (
+                <div
+                  key={stop.id || stop.stop_order || index}
+                  className="lbr-modal-stop"
+                >
+                  <div className="lbr-modal-timeline">
+                    <span
+                      className={
+                        index === 0
+                          ? "start"
+                          : index === allStops.length - 1
+                          ? "end"
+                          : ""
                       }
-                      className="lbr-modal-stop"
-                    >
+                    />
+                    {index < allStops.length - 1 && <div />}
+                  </div>
 
-                      <div className="lbr-modal-timeline">
-
-                        <span
-                          className={
-                            isFirst
-                              ? "start"
-                              : isLast
-                              ? "end"
-                              : ""
-                          }
-                        />
-
-                        {!isLast && (
-                          <div />
-                        )}
-
-                      </div>
-
-
-                      <div className="lbr-modal-stop-info">
-
-                        <div>
-
-                          <strong>
-                            {
-                              stop.station_name
-                            }
-                          </strong>
-
-                          <small>
-                            {isFirst
-                              ? "Boarding"
-                              : isLast
-                              ? "Destination"
-                              : "Stop"}
-                          </small>
-
-                        </div>
-
-                      </div>
-
-
-                      <div className="lbr-modal-time">
-
-                        <strong>
-                          {formatTime(
-                            stop.arrival_time ||
-                              stop.departure_time
-                          )}
-                        </strong>
-
-                        {stop.departure_time &&
-                          stop.arrival_time &&
-                          stop.departure_time !==
-                            stop.arrival_time && (
-
-                            <small>
-                              Dep.{" "}
-                              {formatTime(
-                                stop.departure_time
-                              )}
-                            </small>
-
-                          )}
-
-                      </div>
-
+                  <div className="lbr-modal-stop-info">
+                    <div>
+                      <strong>{stop.station_name}</strong>
+                      <small>
+                        {index === 0
+                          ? "Boarding"
+                          : index === allStops.length - 1
+                          ? "Destination"
+                          : "Stop"}
+                      </small>
                     </div>
-                  );
-                }
-              )}
+                  </div>
 
+                  <div className="lbr-modal-time">
+                    <strong>{formatTime(stop.arrival_time || stop.departure_time)}</strong>
+                  </div>
+                </div>
+              ))}
             </div>
 
-
-            {/* MODAL TRACK BUTTON */}
-
-         <Link
-  to="/trackbus"
-  search={{
-    busId: String(selectedRoute.id),
-    from: from,
-    to: to,
-    date: selectedDate,
-  }}
-  className="lbr-modal-track"
->
-  <Navigation
-    size={18}
-    strokeWidth={2.2}
-  />
-
-  <span>
-    Track This Bus
-  </span>
-</Link>
-
+            <Link
+              to="/trackbus"
+              search={{
+                busId: selectedRoute.demo
+                  ? "demo-bus"
+                  : String(selectedRoute.id),
+                from: selectedRoute.demo ? "Stop S" : from,
+                to: selectedRoute.demo ? "Stop C" : to,
+                date,
+              }}
+              className="lbr-modal-track"
+            >
+              <Navigation size={18} />
+              <span>Track This Bus</span>
+            </Link>
           </div>
-
         </div>
-
       )}
 
-
-      {/* ==================================================
-          BOTTOM NAV
-      ================================================== */}
-
       <PassengerBottomNav />
-
     </div>
   );
 }

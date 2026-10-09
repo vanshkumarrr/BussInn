@@ -1,796 +1,765 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  Clock3,
-  MapPin,
-  Navigation,
-  Route as RouteIcon,
-} from "lucide-react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+
+import { useEffect, useRef, useState } from "react";
+import * as maplibregl from "maplibre-gl";
+import { setWorkerUrl } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { supabase } from "../../lib/supabase";
-import "../../styles/TrackBus.css";
-const ORDINARY_BUS_IMAGE =
-  "https://www.onlineupsrtc.co.in/assets/icons/Ordinary.png";
 
-const AC_BUS_IMAGE =
-  "https://www.onlineupsrtc.co.in/assets/icons/bus_ac_janrath_2x2.png";
+setWorkerUrl(workerUrl);
 
-const getBusImage = (busType) => {
-  const type = String(busType || "").trim().toUpperCase();
+const DEMO_ID = 1;
+const BLUE = "#4285F4";
 
-  if (type.includes("NON AC") || type.includes("ORDINARY")) {
-    return ORDINARY_BUS_IMAGE;
-  }
+const ROUTE = [
+  { id: "start", label: "S", name: "Stop S", coordinates: [77.521577, 28.478776] },
+  { id: "a", label: "A", name: "Stop A", coordinates: [77.522070, 28.478140] },
+  { id: "b", label: "B", name: "Stop B", coordinates: [77.521175, 28.477565] },
+  { id: "c", label: "C", name: "Stop C", coordinates: [77.520681, 28.478282] },
+];
 
-  return AC_BUS_IMAGE;
-};
+function createStopElement(label, color) {
+  const element = document.createElement("div");
+  Object.assign(element.style, {
+    width: "30px",
+    height: "30px",
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "50%",
+    background: color,
+    color: "#fff",
+    border: "3px solid white",
+    boxShadow: "0 3px 12px #0003",
+    fontWeight: "800",
+    fontSize: "12px",
+    boxSizing: "border-box",
+  });
+  element.textContent = label;
+  return element;
+}
 
-const formatTime = (time) => {
-  if (!time) return "--";
-
-  const [hoursString, minutesString] = String(time).split(":");
-
-  let hours = Number(hoursString);
-  const minutes = Number(minutesString);
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return time;
-  }
-
-  const period = hours >= 12 ? "PM" : "AM";
-
-  hours = hours % 12;
-
-  if (hours === 0) {
-    hours = 12;
-  }
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-    2,
-    "0"
-  )} ${period}`;
-};
-
-const normalizeName = (name) =>
-  String(name || "")
-    .trim()
-    .toUpperCase();
-
-const isSameStop = (a, b) =>
-  normalizeName(a?.station_name) === normalizeName(b?.station_name);
-
-export default function TrackBus() {
-  const navigate = useNavigate();
-
-  const {
-    busId,
-    from = "",
-    to = "",
-    date = "",
-  } = useSearch({
-    from: "/trackbus",
+function createBusElement() {
+  const element = document.createElement("div");
+  Object.assign(element.style, {
+    width: "48px",
+    height: "48px",
+    position: "relative",
+    display: "grid",
+    placeItems: "center",
+    overflow: "visible",
   });
 
-  const [bus, setBus] = useState(null);
-  const [stops, setStops] = useState([]);
-  const [loading, setLoading] = useState(true);
+  element.innerHTML = `
+    <div style="position:absolute;inset:0;border-radius:50%;background:rgba(66,133,244,.10)"></div>
+    <div data-direction-cone style="position:absolute;inset:0;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 90ms linear">
+      <div style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;border-bottom:34px solid rgba(66,133,244,.30)"></div>
+    </div>
+    <div style="position:relative;z-index:2;width:15px;height:15px;border-radius:50%;background:#4285F4;border:3px solid white;box-shadow:0 1px 8px rgba(66,133,244,.55);box-sizing:border-box"></div>
+  `;
+
+  return element;
+}
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
+function getBearing(from, to) {
+  const lat1 = toRadians(from[1]);
+  const lat2 = toRadians(to[1]);
+  const deltaLng = toRadians(to[0] - from[0]);
+  const y = Math.sin(deltaLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+function distanceBetween(a, b) {
+  const lat1 = toRadians(a[1]);
+  const lat2 = toRadians(b[1]);
+  const deltaLat = lat2 - lat1;
+  const deltaLng = toRadians(b[0] - a[0]);
+  const value =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+
+  return 6371000 * 2 * Math.atan2(
+    Math.sqrt(value),
+    Math.sqrt(Math.max(0, 1 - value))
+  );
+}
+
+export default function TrackRunningPage() {
+  const mapContainer = useRef(null);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const watchIdRef = useRef(null);
+  const trailRef = useRef([]);
+  const lastGpsRef = useRef(null);
+  const headingRef = useRef(0);
+  const trackingRef = useRef(false);
+  const mountedRef = useRef(true);
+  const compassRef = useRef(false);
+
+  const [mapReady, setMapReady] = useState(false);
+  const [tracking, setTracking] = useState(false);
+  const [location, setLocation] = useState(null);
   const [error, setError] = useState("");
-
-  /*
-   * ------------------------------------------------------------
-   * LOAD BUS + SCHEDULE
-   * ------------------------------------------------------------
-   */
+  const [mapError, setMapError] = useState("");
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
+    if (!mapContainer.current || mapRef.current) return;
 
-    const loadBus = async () => {
-      if (!busId) {
-        setError("Bus information is missing.");
-        setLoading(false);
-        return;
+    let disposed = false;
+
+    const map = new maplibregl.Map({
+      container: mapContainer.current,
+      style: "https://tiles.openfreemap.org/styles/liberty",
+      center: ROUTE[0].coordinates,
+      zoom: 16,
+      attributionControl: true,
+    });
+
+    mapRef.current = map;
+    map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+    map.on("load", () => {
+      if (disposed) return;
+
+      map.addSource("demo-route", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: ROUTE.map((p) => p.coordinates),
+          },
+        },
+      });
+
+      map.addLayer({
+        id: "demo-route-outline",
+        type: "line",
+        source: "demo-route",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#fff", "line-width": 8 },
+      });
+
+      map.addLayer({
+        id: "demo-route-line",
+        type: "line",
+        source: "demo-route",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": BLUE, "line-width": 4 },
+      });
+
+      ROUTE.forEach((point, index) => {
+        new maplibregl.Marker({
+          element: createStopElement(
+            point.label,
+            index === 0 ? "#f59e0b" : "#dc2626"
+          ),
+        })
+          .setLngLat(point.coordinates)
+          .setPopup(new maplibregl.Popup({ offset: 18 }).setText(point.name))
+          .addTo(map);
+      });
+
+      markerRef.current = new maplibregl.Marker({
+        element: createBusElement(),
+        anchor: "center",
+      })
+        .setLngLat(ROUTE[0].coordinates)
+        .addTo(map);
+
+      const bounds = new maplibregl.LngLatBounds();
+      ROUTE.forEach((p) => bounds.extend(p.coordinates));
+      map.fitBounds(bounds, { padding: 45, maxZoom: 17 });
+
+      // Mobile: let the page scroll instead of dragging the map.
+      if (window.matchMedia("(max-width: 850px)").matches) {
+        map.dragPan.disable();
+        map.touchZoomRotate.disable();
+        map.scrollZoom.disable();
+        mapContainer.current.style.touchAction = "pan-y";
+        const canvas = map.getCanvas();
+        canvas.style.touchAction = "pan-y";
       }
 
-      setLoading(true);
-      setError("");
+      setMapReady(true);
+      setMapError("");
+      setTimeout(() => {
+        if (!disposed) map.resize();
+      }, 100);
+    });
 
-      try {
-        const { data: busData, error: busError } = await supabase
-          .from("buses")
-          .select("*")
-          .eq("id", busId)
-          .maybeSingle();
-
-        if (busError) {
-          throw busError;
-        }
-
-        if (!busData) {
-          throw new Error("Bus not found.");
-        }
-
-        const { data: scheduleData, error: scheduleError } = await supabase
-          .from("bus_schedule")
-          .select(
-            `
-              id,
-              bus_id,
-              stop_order,
-              station_name,
-              arrival_time,
-              departure_time
-            `
-          )
-          .eq("bus_id", busId)
-          .order("stop_order", { ascending: true });
-
-        if (scheduleError) {
-          throw scheduleError;
-        }
-
-        if (!mounted) return;
-
-        setBus(busData);
-        setStops(scheduleData || []);
-      } catch (err) {
-        console.error("Track bus loading error:", err);
-
-        if (!mounted) return;
-
-        setError(
-          err?.message ||
-            "Unable to load this bus right now. Please try again."
-        );
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+    map.on("error", (event) => {
+      console.error("Map error:", event.error || event);
+      if (!map.isStyleLoaded() && !disposed) {
+        setMapError("Map could not load. Check your internet connection.");
       }
-    };
-
-    loadBus();
+    });
 
     return () => {
-      mounted = false;
+      disposed = true;
+      mountedRef.current = false;
+      trackingRef.current = false;
+
+      window.removeEventListener("deviceorientation", handleOrientation, true);
+      window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
+
+      if (watchIdRef.current !== null) {
+        navigator.geolocation?.clearWatch(watchIdRef.current);
+      }
+
+      watchIdRef.current = null;
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
     };
-  }, [busId]);
+  }, []);
 
-  /*
-   * ------------------------------------------------------------
-   * REALTIME BUS UPDATE
-   * ------------------------------------------------------------
-   */
+  function rotatePointer(heading) {
+    if (!Number.isFinite(heading)) return;
 
-  useEffect(() => {
-    if (!busId) return;
+    headingRef.current = ((heading % 360) + 360) % 360;
+    const cone = markerRef.current
+      ?.getElement()
+      ?.querySelector("[data-direction-cone]");
 
-    const channel = supabase
-      .channel(`track-bus-${busId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "buses",
-          filter: `id=eq.${busId}`,
-        },
-        (payload) => {
-          if (payload?.new) {
-            setBus((previous) => ({
-              ...(previous || {}),
-              ...payload.new,
-            }));
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bus_schedule",
-          filter: `bus_id=eq.${busId}`,
-        },
-        async () => {
-          const { data } = await supabase
-            .from("bus_schedule")
-            .select(
-              `
-                id,
-                bus_id,
-                stop_order,
-                station_name,
-                arrival_time,
-                departure_time
-              `
-            )
-            .eq("bus_id", busId)
-            .order("stop_order", { ascending: true });
+    if (cone) cone.style.transform = `rotate(${headingRef.current}deg)`;
+  }
 
-          if (data) {
-            setStops(data);
-          }
-        }
-      )
-      .subscribe();
+  function handleOrientation(event) {
+    let heading = null;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [busId]);
-
-  /*
-   * ------------------------------------------------------------
-   * BUS IMAGE
-   * ------------------------------------------------------------
-   */
-
-  const busImage = useMemo(() => {
-    return getBusImage(bus?.bus_type);
-  }, [bus?.bus_type]);
-
-  /*
-   * ------------------------------------------------------------
-   * CURRENT STOP
-   * ------------------------------------------------------------
-   *
-   * For now the trip is shown in pre-start state.
-   * ANAND VIHAR is therefore always the current stop.
-   */
-
-  const currentStop = useMemo(() => {
-    return (
-      stops.find(
-        (stop) => normalizeName(stop.station_name) === "ANAND VIHAR"
-      ) ||
-      stops[0] ||
-      null
-    );
-  }, [stops]);
-
-  /*
-   * ------------------------------------------------------------
-   * NEXT STOP
-   * ------------------------------------------------------------
-   */
-
-  const nextStop = useMemo(() => {
-    if (!stops.length) return null;
-
-    const currentIndex = stops.findIndex(
-      (stop) => normalizeName(stop.station_name) === "ANAND VIHAR"
-    );
-
-    if (currentIndex >= 0 && stops[currentIndex + 1]) {
-      return stops[currentIndex + 1];
+    if (Number.isFinite(event.webkitCompassHeading)) {
+      heading = event.webkitCompassHeading;
+    } else if (event.absolute && Number.isFinite(event.alpha)) {
+      heading = (360 - event.alpha + 360) % 360;
     }
 
-    return stops[1] || null;
-  }, [stops]);
+    if (heading === null || !Number.isFinite(heading)) return;
 
-  /*
-   * ------------------------------------------------------------
-   * PRE-START STATE
-   * ------------------------------------------------------------
-   */
+    rotatePointer(heading);
 
-  const busHasStarted = false;
-  const progress = 0;
+    if (mountedRef.current) {
+      setLocation((current) =>
+        current ? { ...current, heading: headingRef.current } : current
+      );
+    }
+  }
 
-  /*
-   * ------------------------------------------------------------
-   * BACK BUTTON
-   * ------------------------------------------------------------
-   *
-   * This preserves the previous results page exactly as it was.
-   */
+  async function enableCompass() {
+    try {
+      if (typeof DeviceOrientationEvent === "undefined") return;
 
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        const result = await DeviceOrientationEvent.requestPermission();
+        if (result !== "granted") return;
+      }
+
+      window.addEventListener("deviceorientation", handleOrientation, true);
+      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+      compassRef.current = true;
+    } catch (e) {
+      console.warn("Compass permission unavailable:", e);
+    }
+  }
+
+  async function publishPosition(position) {
+    const { latitude, longitude, accuracy, speed } = position.coords;
+    const coords = [longitude, latitude];
+    const last = trailRef.current.at(-1);
+
+    if (
+      !last ||
+      Math.abs(last[0] - longitude) > 0.000005 ||
+      Math.abs(last[1] - latitude) > 0.000005
+    ) {
+      trailRef.current = [...trailRef.current, coords].slice(-500);
+    }
+
+    const { error: saveError } = await supabase
+      .from("demo_live_tracking")
+      .upsert(
+        {
+          id: DEMO_ID,
+          is_started: true,
+          latitude,
+          longitude,
+          speed: Number.isFinite(speed) && speed >= 0 ? speed : null,
+          heading: headingRef.current,
+          trail: trailRef.current,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+
+    if (!mountedRef.current) return;
+
+    if (saveError) {
+      console.error("Supabase location update failed:", saveError);
+      setError("GPS works, but Supabase update failed. Check table columns and permissions.");
+    } else {
+      setError("");
+    }
+
+    setLocation({
+      latitude,
+      longitude,
+      accuracy: Math.round(accuracy),
+      speed,
+      heading: headingRef.current,
+    });
+  }
+
+  function handlePosition(position) {
+    if (!trackingRef.current) return;
+
+    const { latitude, longitude, heading, speed } = position.coords;
+    const coords = [longitude, latitude];
+    const previous = lastGpsRef.current;
+
+    if (!compassRef.current) {
+      if (Number.isFinite(heading) && heading >= 0 && (speed == null || speed > 0.5)) {
+        rotatePointer(heading);
+      } else if (previous && distanceBetween(previous, coords) >= 2) {
+        rotatePointer(getBearing(previous, coords));
+      }
+    }
+
+    lastGpsRef.current = coords;
+    markerRef.current?.setLngLat(coords);
+
+    mapRef.current?.easeTo({ center: coords, duration: 350 });
+    void publishPosition(position);
+  }
+
+  function permissionError(gpsError) {
+    const messages = {
+      1: "Location access is blocked for this website. Tap the site icon beside the address bar → Site settings → Location → Allow. Then reload this page and press Start Tracking.",
+      2: "Your location is unavailable. Turn on your phone's Location/GPS setting and try again.",
+      3: "GPS request timed out. Try again outdoors with Location enabled.",
+    };
+
+    setError(
+      messages[gpsError.code] ||
+      gpsError.message ||
+      "Could not get your location."
+    );
+    trackingRef.current = false;
+    setTracking(false);
+  }
+
+  async function startTracking() {
+    setError("");
+
+    if (!mapReady) {
+      setError("Please wait for the map to load.");
       return;
     }
 
-    navigate({
-      to: "/passenger/results",
-      search: {
-        from,
-        to,
-        date,
+    if (!window.isSecureContext) {
+      setError("Location requires HTTPS. Use your HTTPS website or localhost.");
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setError("This browser does not support location access.");
+      return;
+    }
+
+    if (trackingRef.current || watchIdRef.current !== null) return;
+
+    // Check browser permission state, but still call getCurrentPosition
+    // directly so the browser can prompt when permission is not decided.
+    try {
+      if (navigator.permissions?.query) {
+        const permission = await navigator.permissions.query({
+          name: "geolocation",
+        });
+
+        if (permission.state === "denied") {
+          setError(
+            "Location is already blocked for this website, so the browser will not show a popup. Open the browser site settings, change Location to Allow, reload the page, and press Start Tracking again."
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      // Some browsers do not support the geolocation Permissions query.
+      console.info("Permission status query is unavailable:", e);
+    }
+
+    setError("Waiting for location permission…");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        if (!mountedRef.current || trackingRef.current) return;
+
+        trackingRef.current = true;
+        setTracking(true);
+        setError("");
+
+        // GPS is requested first. Compass permission is independent.
+        void enableCompass();
+
+        handlePosition(position);
+
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          handlePosition,
+          permissionError,
+          { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
+        );
+
+        const { error: startError } = await supabase
+          .from("demo_live_tracking")
+          .upsert(
+            {
+              id: DEMO_ID,
+              is_started: true,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              speed: Number.isFinite(position.coords.speed) ? position.coords.speed : null,
+              heading: headingRef.current,
+              trail: trailRef.current,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id" }
+          );
+
+        if (startError && mountedRef.current) {
+          console.error(startError);
+          setError("GPS started, but Supabase could not save the tracking status.");
+        }
       },
-    });
-  };
-
-  /*
-   * ------------------------------------------------------------
-   * LOADING
-   * ------------------------------------------------------------
-   */
-
-  if (loading) {
-    return (
-      <div className="track-page">
-        <header className="track-header">
-          <button
-            type="button"
-            className="track-back-button"
-            onClick={handleBack}
-            aria-label="Go back"
-          >
-            <ArrowLeft size={21} strokeWidth={2.2} />
-          </button>
-
-          <div className="track-header-title">
-            <span>Track Bus</span>
-          </div>
-        </header>
-
-        <main className="track-loading">
-          <div className="track-loading-spinner" />
-          <p>Loading bus details...</p>
-        </main>
-      </div>
+      permissionError,
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     );
   }
 
-  /*
-   * ------------------------------------------------------------
-   * ERROR
-   * ------------------------------------------------------------
-   */
+  async function stopTracking() {
+    trackingRef.current = false;
 
-  if (error || !bus) {
-    return (
-      <div className="track-page">
-        <header className="track-header">
-          <button
-            type="button"
-            className="track-back-button"
-            onClick={handleBack}
-            aria-label="Go back"
-          >
-            <ArrowLeft size={21} strokeWidth={2.2} />
-          </button>
+    window.removeEventListener("deviceorientation", handleOrientation, true);
+    window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
+    compassRef.current = false;
 
-          <div className="track-header-title">
-            <span>Track Bus</span>
-          </div>
-        </header>
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
 
-        <main className="track-error">
-          <div className="track-error-icon">
-            <img
-              src={ORDINARY_BUS_IMAGE}
-              alt="UPSRTC bus"
-              className="track-error-bus-image"
-            />
-          </div>
+    setTracking(false);
 
-          <h2>Unable to load bus</h2>
+    const { error: stopError } = await supabase
+      .from("demo_live_tracking")
+      .update({ is_started: false, updated_at: new Date().toISOString() })
+      .eq("id", DEMO_ID);
 
-          <p>
-            {error || "The requested bus could not be found."}
-          </p>
+    if (stopError) {
+      console.error(stopError);
+      setError("Tracking stopped locally, but Supabase status could not update.");
+    }
+  }
 
-          <button
-            type="button"
-            className="track-error-button"
-            onClick={handleBack}
-          >
-            Go Back
-          </button>
-        </main>
-      </div>
-    );
+  function centerOnLocation() {
+    const coords = location
+      ? [location.longitude, location.latitude]
+      : ROUTE[0].coordinates;
+
+    mapRef.current?.flyTo({ center: coords, zoom: 17, duration: 450 });
   }
 
   return (
-    <div className="track-page">
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+    <main style={styles.page}>
+      <header style={styles.header}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 850 }}>
+            BussInn <span style={{ color: BLUE }}>Driver</span>
+          </div>
+          <div style={{ marginTop: 5, color: "#68778e", fontSize: 13 }}>
+            Stop S · Stop A · Stop B · Stop C
+          </div>
+        </div>
 
-      <header className="track-header">
-        <button
-          type="button"
-          className="track-back-button"
-          onClick={handleBack}
-          aria-label="Go back"
+        <div
+          style={{
+            ...styles.status,
+            background: tracking ? "#eaf8ef" : "#fff4df",
+            color: tracking ? "#15803d" : "#a16207",
+          }}
         >
-          <ArrowLeft size={21} strokeWidth={2.2} />
-        </button>
-
-        <div className="track-header-title">
-          <span>Track Bus</span>
+          {tracking ? "● GPS tracking active" : "● Tracking stopped"}
         </div>
       </header>
 
-      {/* ======================================================
-          MAP
-      ====================================================== */}
+      <section className="track-running-layout" style={styles.layout}>
+        <div style={styles.mapBox}>
+          <div ref={mapContainer} style={styles.map} />
 
-      <section className="track-map">
-        <div className="track-map-grid" />
+          {!mapReady && !mapError && (
+            <div style={styles.overlay}>Loading map…</div>
+          )}
 
-        <div className="track-map-road track-map-road-one" />
-        <div className="track-map-road track-map-road-two" />
-        <div className="track-map-road track-map-road-three" />
-
-        <div className="track-map-route-line" />
-
-        {/* Route dots */}
-
-        <div className="track-map-stop track-map-stop-one">
-          <span />
-        </div>
-
-        <div className="track-map-stop track-map-stop-two">
-          <span />
-        </div>
-
-        <div className="track-map-stop track-map-stop-three">
-          <span />
-        </div>
-
-        <div className="track-map-stop track-map-stop-four">
-          <span />
-        </div>
-
-        {/* ==================================================
-            BUS MARKER
-        ================================================== */}
-
-        <div
-          className="track-map-bus"
-          style={{
-            left: "10%",
-            top: "29%",
-          }}
-        >
-          <div className="track-map-bus-pulse" />
-
-          <div className="track-map-bus-marker">
-            <img
-              src={busImage}
-              alt="UPSRTC bus"
-              className="track-map-bus-image"
-            />
-          </div>
-        </div>
-
-        {/* Map label */}
-
-        <div className="track-map-label">
-          <Navigation size={13} strokeWidth={2.3} />
-          <span>ANAND VIHAR</span>
-        </div>
-      </section>
-
-      {/* ======================================================
-          BOTTOM SHEET
-      ====================================================== */}
-
-      <main className="track-sheet">
-        {/* ==================================================
-            BUS SUMMARY
-        ================================================== */}
-
-        <section className="track-bus-summary">
-          <div className="track-bus-icon">
-            <img
-              src={busImage}
-              alt="UPSRTC bus"
-              className="track-bus-image"
-            />
-          </div>
-
-          <div className="track-bus-summary-content">
-            <h1>
-              {bus.name ||
-                "UPSRTC Anand Vihar - Hamirpur"}
-            </h1>
-
-            <div className="track-bus-meta">
-              {bus.trip_label && (
-                <span>{bus.trip_label}</span>
-              )}
-
-              {bus.trip_label && bus.bus_type && (
-                <span className="track-meta-dot">•</span>
-              )}
-
-              {bus.bus_type && (
-                <span>{bus.bus_type}</span>
-              )}
+          {mapError && (
+            <div style={{ ...styles.overlay, color: "#b91c1c" }}>
+              {mapError}
             </div>
-          </div>
-        </section>
+          )}
 
-        {/* ==================================================
-            CURRENT STOP
-        ================================================== */}
+          <button onClick={centerOnLocation} style={styles.centerButton}>
+            Center map
+          </button>
+        </div>
 
-        <section className="track-current-card">
-          <div className="track-current-card-top">
-            <div>
-              <span className="track-label">
-                CURRENT LOCATION
-              </span>
-
-              <h2>
-                {currentStop?.station_name ||
-                  "ANAND VIHAR"}
-              </h2>
-            </div>
-
-            <div className="track-current-status">
-              <span className="track-status-dot" />
-              <span>Not started</span>
-            </div>
+        <aside style={styles.panel}>
+          <div style={{ color: BLUE, fontSize: 11, fontWeight: 850 }}>
+            DRIVER CONTROLS
           </div>
 
-          <div className="track-current-time">
-            <Clock3 size={17} strokeWidth={2} />
+          <h2 style={{ margin: "8px 0 6px", fontSize: 23 }}>
+            Live tracking
+          </h2>
 
-            <span>
-              Departure{" "}
-              {formatTime(
-                currentStop?.departure_time
-              )}
-            </span>
+          <p style={styles.description}>
+            Start tracking and allow GPS access. Your location will be
+            shared with the passenger demo page.
+          </p>
+
+          <button
+            onClick={tracking ? stopTracking : startTracking}
+            disabled={!mapReady}
+            style={{
+              ...styles.primaryButton,
+              background: tracking ? "#dc2626" : BLUE,
+              opacity: mapReady ? 1 : 0.6,
+            }}
+          >
+            {!mapReady ? "Loading map…" : tracking ? "Stop Tracking" : "Start Tracking"}
+          </button>
+
+          {error && <div role="alert" style={styles.error}>{error}</div>}
+
+          <div style={styles.locationCard}>
+            <strong style={{ fontSize: 13 }}>Your GPS location</strong>
+
+            {location ? (
+              <div style={styles.locationDetails}>
+                <div>Latitude: {location.latitude.toFixed(6)}</div>
+                <div>Longitude: {location.longitude.toFixed(6)}</div>
+                <div>Accuracy: about {location.accuracy} m</div>
+                <div>
+                  Direction: {Number.isFinite(location.heading)
+                    ? `${Math.round(location.heading)}°`
+                    : "Waiting for compass"}
+                </div>
+              </div>
+            ) : (
+              <p style={styles.description}>
+                Your location appears here when you start tracking.
+              </p>
+            )}
           </div>
 
-          <div className="track-current-message">
-            Bus hasn't started yet
-          </div>
-        </section>
+          <div style={{ marginTop: 22 }}>
+            <strong style={{ fontSize: 13 }}>Route stops</strong>
 
-        {/* ==================================================
-            NEXT STOP
-        ================================================== */}
-
-        <section className="track-next-card">
-          <div className="track-next-icon">
-            <MapPin size={20} strokeWidth={2.1} />
-          </div>
-
-          <div className="track-next-content">
-            <span className="track-label">
-              NEXT STOP
-            </span>
-
-            <h3>
-              {nextStop?.station_name ||
-                "CHILLA BORDER DELHI"}
-            </h3>
-
-            <div className="track-next-time">
-              <Clock3 size={15} strokeWidth={2} />
-
-              <span>
-                Scheduled{" "}
-                {formatTime(
-                  nextStop?.arrival_time
-                )}
-              </span>
-            </div>
-          </div>
-
-          <div className="track-next-arrow">
-            <Navigation
-              size={19}
-              strokeWidth={2}
-            />
-          </div>
-        </section>
-
-        {/* ==================================================
-            JOURNEY PROGRESS
-        ================================================== */}
-
-        <section className="track-progress-section">
-          <div className="track-section-heading">
-            <div>
-              <span className="track-label">
-                JOURNEY PROGRESS
-              </span>
-
-              <h3>
-                {busHasStarted
-                  ? "Bus is on the way"
-                  : "Bus hasn't started yet"}
-              </h3>
-            </div>
-
-            <strong>{progress}%</strong>
-          </div>
-
-          <div className="track-progress-bar">
-            <div
-              className="track-progress-fill"
-              style={{
-                width: `${progress}%`,
-              }}
-            />
-          </div>
-        </section>
-
-        {/* ==================================================
-            ROUTE
-        ================================================== */}
-
-        <section className="track-route-section">
-          <div className="track-section-title">
-            <RouteIcon
-              size={19}
-              strokeWidth={2.1}
-            />
-
-            <h2>Route</h2>
-          </div>
-
-          <div className="track-timeline">
-            {stops.map((stop, index) => {
-              const isCurrent =
-                normalizeName(stop.station_name) ===
-                "ANAND VIHAR";
-
-              const isFirst = index === 0;
-              const isLast =
-                index === stops.length - 1;
-
-              return (
+            {ROUTE.map((point, index) => (
+              <div key={point.id} style={styles.routeStop}>
                 <div
-                  className={`track-stop ${
-                    isCurrent
-                      ? "current"
-                      : index < 0
-                      ? "passed"
-                      : ""
-                  }`}
-                  key={
-                    stop.id ||
-                    `${stop.stop_order}-${stop.station_name}`
-                  }
+                  style={{
+                    ...styles.stopBadge,
+                    background: index === 0 ? "#fff4df" : "#fff0f0",
+                    color: index === 0 ? "#a16207" : "#dc2626",
+                  }}
                 >
-                  {/* Timeline line */}
+                  {point.label}
+                </div>
 
-                  {!isLast && (
-                    <div className="track-stop-line" />
-                  )}
-
-                  {/* Timeline dot */}
-
-                  <div className="track-stop-dot">
-                    {isCurrent && (
-                      <span />
-                    )}
-                  </div>
-
-                  {/* Stop content */}
-
-                  <div className="track-stop-content">
-                    <div className="track-stop-main">
-                      <h4>
-                        {stop.station_name}
-                      </h4>
-
-                      <div className="track-stop-times">
-                        {stop.arrival_time && (
-                          <span>
-                            Arrive{" "}
-                            {formatTime(
-                              stop.arrival_time
-                            )}
-                          </span>
-                        )}
-
-                        {stop.departure_time && (
-                          <span>
-                            Depart{" "}
-                            {formatTime(
-                              stop.departure_time
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="track-stop-status">
-                      {isFirst ? (
-                        <span>
-                          Bus hasn't started yet
-                        </span>
-                      ) : isCurrent ? (
-                        <span>Current stop</span>
-                      ) : (
-                        <span>Upcoming</span>
-                      )}
-                    </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 750 }}>{point.name}</div>
+                  <div style={{ color: "#8995a8", fontSize: 11 }}>
+                    {index === 0 ? "Starting point" : "Route stop"}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
-        </section>
+        </aside>
+      </section>
 
-        {/* ==================================================
-            BUS INFORMATION
-        ================================================== */}
+      <style>{`
+        * { box-sizing: border-box; }
 
-        <section className="track-info-section">
-          <div className="track-section-title">
-            <RouteIcon
-              size={19}
-              strokeWidth={2.1}
-            />
+        html, body, #root {
+          min-height: 100%;
+          height: auto;
+          overflow-y: auto !important;
+        }
 
-            <h2>Bus Information</h2>
-          </div>
+        body {
+          margin: 0;
+          -webkit-overflow-scrolling: touch;
+        }
 
-          <div className="track-info-grid">
-            <div className="track-info-item">
-              <span>Operator</span>
-              <strong>
-                {bus.operator || "UPSRTC"}
-              </strong>
-            </div>
+        .track-running-layout {
+          touch-action: pan-y;
+        }
 
-            <div className="track-info-item">
-              <span>Bus Type</span>
-              <strong>
-                {bus.bus_type ||
-                  "NON AC ORDINARY"}
-              </strong>
-            </div>
-
-            <div className="track-info-item">
-              <span>Trip</span>
-              <strong>
-                {bus.trip_label || "--"}
-              </strong>
-            </div>
-
-            <div className="track-info-item">
-              <span>Bus Number</span>
-              <strong>
-                {bus.bus_number || "--"}
-              </strong>
-            </div>
-
-            <div className="track-info-item">
-              <span>Source</span>
-              <strong>
-                {bus.source || from || "--"}
-              </strong>
-            </div>
-
-            <div className="track-info-item">
-              <span>Destination</span>
-              <strong>
-                {bus.destination || to || "--"}
-              </strong>
-            </div>
-
-            <div className="track-info-item">
-              <span>Fare</span>
-              <strong>
-                {bus.fare != null
-                  ? `₹${bus.fare}`
-                  : "--"}
-              </strong>
-            </div>
-
-            <div className="track-info-item">
-              <span>Depot</span>
-              <strong>
-                {bus.depot || "--"}
-              </strong>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
+        @media (max-width: 850px) {
+          .track-running-layout {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+        }
+      `}</style>
+    </main>
   );
 }
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    height: "auto",
+    overflow: "visible",
+    padding: "16px",
+    background: "#f3f6fb",
+    color: "#14213d",
+    fontFamily: "Inter, system-ui, sans-serif",
+    boxSizing: "border-box",
+  },
+  header: {
+    maxWidth: 1400,
+    margin: "0 auto 14px",
+    padding: "16px 20px",
+    background: "#fff",
+    border: "1px solid #e4eaf2",
+    borderRadius: 18,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 14,
+    flexWrap: "wrap",
+  },
+  status: {
+    padding: "8px 12px",
+    borderRadius: 30,
+    fontWeight: 750,
+    fontSize: 12,
+  },
+  layout: {
+    maxWidth: 1400,
+    margin: "0 auto",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) 310px",
+    gap: 16,
+    alignItems: "start",
+  },
+  mapBox: {
+    position: "relative",
+    height: "280px",
+    minHeight: "240px",
+    overflow: "hidden",
+    background: "#e6edf5",
+    border: "1px solid #dce5ef",
+    borderRadius: 20,
+    touchAction: "pan-y",
+  },
+  map: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    touchAction: "pan-y",
+  },
+  overlay: {
+    position: "absolute",
+    zIndex: 3,
+    top: 12,
+    left: 12,
+    right: 12,
+    padding: 12,
+    background: "#fff",
+    borderRadius: 12,
+    boxShadow: "0 4px 18px #0001",
+    fontSize: 13,
+  },
+  centerButton: {
+    position: "absolute",
+    zIndex: 4,
+    left: 12,
+    bottom: 12,
+    padding: "10px 13px",
+    border: "1px solid #e1e7ef",
+    borderRadius: 10,
+    background: "#fff",
+    fontWeight: 750,
+    cursor: "pointer",
+  },
+  panel: {
+    padding: 20,
+    border: "1px solid #e4eaf2",
+    borderRadius: 20,
+    background: "#fff",
+    minWidth: 0,
+  },
+  description: {
+    color: "#68778e",
+    fontSize: 13,
+    lineHeight: 1.65,
+  },
+  primaryButton: {
+    width: "100%",
+    minHeight: 48,
+    marginTop: 16,
+    border: 0,
+    borderRadius: 12,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 850,
+    cursor: "pointer",
+  },
+  error: {
+    marginTop: 14,
+    padding: 13,
+    borderRadius: 12,
+    background: "#fff1f2",
+    color: "#b91c1c",
+    fontSize: 12,
+    lineHeight: 1.7,
+    overflowWrap: "anywhere",
+  },
+  locationCard: {
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 12,
+    background: "#f4f7fc",
+  },
+  locationDetails: {
+    marginTop: 8,
+    color: "#52627a",
+    fontSize: 12,
+    lineHeight: 1.8,
+    overflowWrap: "anywhere",
+  },
+  routeStop: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 14,
+  },
+  stopBadge: {
+    width: 32,
+    height: 32,
+    flexShrink: 0,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "50%",
+    fontWeight: 850,
+    fontSize: 12,
+  },
+};
