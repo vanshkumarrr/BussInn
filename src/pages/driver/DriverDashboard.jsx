@@ -220,11 +220,15 @@ const routeStops =
             <div className="stats-grid">
               <div className="stat-box">
                 <span className="stat-label">{t.startTime}</span>
-                <span className="stat-value text-primary">{routeDetails.startTime}</span>
+                <span className="stat-value text-primary">
+  {routeDetails.selectedBus?.departureTime || routeDetails.startTime || "Not available"}
+</span>
               </div>
               <div className="stat-box">
                 <span className="stat-label">{t.endTime}</span>
-                <span className="stat-value">{routeDetails.endTime}</span>
+                <span className="stat-value">
+  {routeDetails.selectedBus?.arrivalTime || routeDetails.endTime || "Not available"}
+</span>
               </div>
               <div className="stat-box">
                 <span className="stat-label">{t.totalStops}</span>
@@ -286,7 +290,9 @@ const routeStops =
             <div className="timeline">
               <div className="timeline-item">
                 <div className="time-block">
-                  <span className="time">{routeDetails.startTime}</span>
+                  <span className="time">
+  {routeDetails.selectedBus?.departureTime || routeDetails.startTime || "Not available"}
+</span>
                 </div>
                 <div className="timeline-node bg-blue-light">
                   <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary">

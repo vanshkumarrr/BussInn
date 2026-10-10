@@ -326,8 +326,15 @@ console.log("Matched bus:", matchedBus);
             destination:
               matchedBus.destination || matchedBus.matchedDestination,
             stops: matchedBus.stops || matchedBus.routeStops || [],
-            departureTime: matchedBus.departure_time || null,
-            arrivalTime: matchedBus.arrival_time || null,
+           departureTime:
+  matchedBus.matchedDepartureTime ||
+  matchedBus.departure_time ||
+  null,
+
+arrivalTime:
+  matchedBus.matchedArrivalTime ||
+  matchedBus.arrival_time ||
+  null,
             scheduleVerified: matchedBus.scheduleVerified === true,
           }
         : null,
