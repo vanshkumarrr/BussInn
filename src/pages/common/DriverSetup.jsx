@@ -1,3 +1,4 @@
+import { supabase } from "../../lib/supabase";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { MapPin, Navigation, BusFront } from "lucide-react";
@@ -36,114 +37,84 @@ const getMinutes = (time) => {
   return hours * 60 + minutes;
 };
 
-
-const findBusMatches = (buses, departure, destination, shiftStart, shiftEnd) => {
+const findBusMatches = (
+  buses,
+  departure,
+  destination,
+  shiftStart,
+  shiftEnd
+) => {
   const from = normalizeLocation(departure);
   const to = normalizeLocation(destination);
-  const shiftStartMinutes = getMinutes(shiftStart);
-  const shiftEndMinutes = getMinutes(shiftEnd);
 
-  if (
-    !from ||
-    !to ||
-    from === to ||
-    shiftStartMinutes === null ||
-    shiftEndMinutes === null
-  ) {
+  if (!from || !to || from === to || !shiftStart || !shiftEnd) {
     return [];
   }
 
-  const shiftEndAdjusted =
-    shiftEndMinutes < shiftStartMinutes
-      ? shiftEndMinutes + 1440
-      : shiftEndMinutes;
-
   return buses.flatMap((bus) => {
-    const routeStops = (bus.stops || bus.routeStops || [])
-      .slice()
-      .sort((a, b) => Number(a.stopOrder) - Number(b.stopOrder));
+    const routeStops = [...(bus.bus_schedule || [])].sort(
+      (a, b) => Number(a.stop_order) - Number(b.stop_order)
+    );
 
-    // First, try matching a bus with an actual ordered route.
-    if (routeStops.length > 0) {
-      const departureIndex = routeStops.findIndex(
-        (stop) => normalizeLocation(stop.name) === from
-      );
+    if (routeStops.length === 0) return [];
 
-      const destinationIndex = routeStops.findIndex(
-        (stop) => normalizeLocation(stop.name) === to
-      );
+    const departureIndex = routeStops.findIndex(
+      (stop) => normalizeLocation(stop.station_name) === from
+    );
 
-      if (
-        departureIndex < 0 ||
-        destinationIndex <= departureIndex
-      ) {
-        return [];
-      }
+    const destinationIndex = routeStops.findIndex(
+      (stop) => normalizeLocation(stop.station_name) === to
+    );
 
-      const departureStop = routeStops[departureIndex];
-      const destinationStop = routeStops[destinationIndex];
-
-      const busStart = getMinutes(
-        departureStop.departureTime || departureStop.arrivalTime
-      );
-
-      const busEnd = getMinutes(
-        destinationStop.arrivalTime || destinationStop.departureTime
-      );
-
-      // Show a route candidate, but don't claim its schedule is verified.
-      if (busStart === null || busEnd === null) {
-        return [{
-          ...bus,
-          matchedDeparture: departureStop.name,
-          matchedDestination: destinationStop.name,
-          scheduleVerified: false,
-        }];
-      }
-
-      const busEndAdjusted =
-        busEnd < busStart ? busEnd + 1440 : busEnd;
-
-      if (
-        busStart < shiftStartMinutes ||
-        busEndAdjusted > shiftEndAdjusted
-      ) {
-        return [];
-      }
-
-      return [{
-        ...bus,
-        matchedDeparture: departureStop.name,
-        matchedDestination: destinationStop.name,
-        matchedDepartureTime:
-          departureStop.departureTime || departureStop.arrivalTime,
-        matchedArrivalTime:
-          destinationStop.arrivalTime || destinationStop.departureTime,
-        scheduleVerified: true,
-      }];
+    if (
+      departureIndex < 0 ||
+      destinationIndex <= departureIndex
+    ) {
+      return [];
     }
 
-    // Fallback: match a direct route using the bus's existing source/destination.
-    const busSource = normalizeLocation(bus.source);
-    const busDestination = normalizeLocation(bus.destination);
+    const departureStop = routeStops[departureIndex];
+    const destinationStop = routeStops[destinationIndex];
 
-    if (busSource === from && busDestination === to) {
-      return [{
-        ...bus,
-        matchedDeparture: bus.source,
-        matchedDestination: bus.destination,
-        scheduleVerified: false,
-      }];
+    // Match the actual scheduled departure and arrival times.
+    const scheduledDeparture = String(
+      departureStop.departure_time || ""
+    ).slice(0, 5);
+
+    const scheduledArrival = String(
+      destinationStop.arrival_time || ""
+    ).slice(0, 5);
+
+    if (
+      !scheduledDeparture ||
+      !scheduledArrival ||
+      scheduledDeparture !== shiftStart ||
+      scheduledArrival !== shiftEnd
+    ) {
+      return [];
     }
 
-    return [];
+    return [{
+      ...bus,
+      matchedDeparture: departureStop.station_name,
+      matchedDestination: destinationStop.station_name,
+      matchedDepartureTime: scheduledDeparture,
+      matchedArrivalTime: scheduledArrival,
+      scheduleVerified: true,
+      stops: routeStops.map((stop) => ({
+        name: stop.station_name,
+        stopOrder: stop.stop_order,
+        arrivalTime: stop.arrival_time || "",
+        departureTime: stop.departure_time || "",
+      })),
+    }];
   });
 };
 
 
 const DriverSetup = () => {
   const navigate = useNavigate();
-  
+
   // 1. Global Language State (Reads from localStorage, persists across app)
  const [isHindi, setIsHindi] = useState(false);
 
@@ -174,7 +145,29 @@ useEffect(() => {
     setBusLoadError("");
 
     try {
-      const data = await getBuses();
+      const { data, error } = await supabase
+  .from("buses")
+  .select(`
+    *,
+    bus_schedule (
+      id,
+      stop_order,
+      station_name,
+      arrival_time,
+      departure_time
+    )
+  `)
+  .eq("is_active", true);
+
+if (error) throw error;
+
+const scheduledBuses = (data || []).map((bus) => ({
+  ...bus,
+  bus_schedule: [...(bus.bus_schedule || [])].sort(
+    (a, b) => Number(a.stop_order) - Number(b.stop_order)
+  ),
+}));
+if (!cancelled) setBuses(scheduledBuses);
       if (!cancelled) setBuses(data);
     } catch (err) {
       console.error("Unable to load buses:", err);
@@ -297,9 +290,9 @@ const selectLocation = (field, location) => {
       return;
     }
 
-    
+
     setError("");
-    
+
     // Save configuration data for the dashboard
     const matchedBus = matchedBuses.find((bus) => bus.id === selectedBusId);
     console.log("Selected bus ID:", selectedBusId);
@@ -342,14 +335,14 @@ arrivalTime:
     };
 
     localStorage.setItem("driver_route_config", JSON.stringify(driverRouteData));
-    
+
     navigate({ to: "/driver/dashboard" });
   };
 
   return (
     <div className="mobile-page-container">
       <div className="app-content driver-layout">
-        
+
         {/* Top Navigation */}
         <header className="driver-header">
           <div className="brand-info">
@@ -358,10 +351,10 @@ arrivalTime:
             </svg>
             <span className="brand-name">BussInn</span>
           </div>
-          
+
           {/* Global Language Toggle Button */}
-          <button 
-            className="btn-lang-pill" 
+          <button
+            className="btn-lang-pill"
             onClick={toggleLanguage}
             title="Change Language"
           >
@@ -387,7 +380,7 @@ arrivalTime:
           </div>
 
           <form className="setup-form" onSubmit={(e) => e.preventDefault()}>
-            
+
            {/* Departure Point */}
 <div className="form-group">
   <label className="form-label">{t.departureLabel}</label>
@@ -452,20 +445,20 @@ arrivalTime:
                   {t.stopsLabel} <span className="stops-hint">{t.stopsHint}</span>
                 </label>
               </div>
-              
+
               <div className="stops-list">
                 {stops.map((stop, index) => (
                   <div key={index} className="stop-item">
                     <div className="stop-node"></div>
                     <div className="input-box stop-input-box">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder={t.stopPlaceholder}
                         value={stop}
                         onChange={(e) => handleStopChange(index, e.target.value)}
                       />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         className="btn-remove-stop"
                         onClick={() => handleRemoveStop(index)}
                         title="Remove Stop"
@@ -479,7 +472,7 @@ arrivalTime:
                   </div>
                 ))}
               </div>
-              
+
               <button type="button" className="btn-add-stop" onClick={handleAddStop}>
                 {t.addStopBtn}
               </button>
@@ -549,8 +542,8 @@ arrivalTime:
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 6v6l4 2" />
                   </svg>
-                  <input 
-                    type="time" 
+                  <input
+                    type="time"
                     value={startTime}
                     onChange={(e) => { setStartTime(e.target.value); setError(""); }}
                   />
@@ -565,8 +558,8 @@ arrivalTime:
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 6v6l3 3" />
                   </svg>
-                  <input 
-                    type="time" 
+                  <input
+                    type="time"
                     value={endTime}
                     onChange={(e) => { setEndTime(e.target.value); setError(""); }}
                   />
