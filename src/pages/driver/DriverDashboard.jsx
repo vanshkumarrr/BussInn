@@ -67,9 +67,35 @@ useEffect(() => {
   routeCode: "RTE-42A",
   driverName: "Driver",
 });
+
+  useEffect(() => {
+    try {
+      const savedConfig = localStorage.getItem("driver_route_config");
+
+      if (!savedConfig) return;
+
+      const parsedConfig = JSON.parse(savedConfig);
+
+      setRouteDetails((current) => ({
+        ...current,
+        ...parsedConfig,
+        stops: Array.isArray(parsedConfig.stops)
+          ? parsedConfig.stops
+          : [],
+      }));
+    } catch (error) {
+      console.error("Failed to load driver route configuration:", error);
+    }
+  }, []);
+
     
     
     
+const routeStops =
+  routeDetails.selectedBus?.stops?.length > 0
+    ? routeDetails.selectedBus.stops
+    : routeDetails.stops || [];
+
 
   const [timeError, setTimeError] = useState("");
 
@@ -179,6 +205,11 @@ useEffect(() => {
               <div>
                 <span className="label-small">{t.currentRoute}</span>
                 <h3 className="route-name">{routeDetails.departure} → {routeDetails.destination}</h3>
+                {routeDetails.selectedBus && (
+  <p className="selected-bus-name">
+    Bus: {routeDetails.selectedBus.name}
+  </p>
+)}
               </div>
               <div className="status-badge">
                 <span className="status-dot"></span>
@@ -268,7 +299,11 @@ useEffect(() => {
                 </div>
               </div>
 
-              {routeDetails.stops && routeDetails.stops.map((stopName, idx) => (
+              {routeStops.map((stop, idx) => {
+  const stopName =
+    typeof stop === "string" ? stop : stop.name;
+
+  return (
                 <div className="timeline-item" key={idx}>
                   <div className="time-block">
                     <span className="time">Stop {idx + 1}</span>
@@ -283,8 +318,13 @@ useEffect(() => {
                     <p className="timeline-desc">{stopName}</p>
                   </div>
                 </div>
-              ))}
-
+                );
+})}
+              {routeStops.length === 0 && (
+  <p className="timeline-desc">
+    Intermediate stops are not available for this bus yet.
+  </p>
+)}
               <div className="timeline-item">
                 <div className="time-block">
                   <span className="time">{routeDetails.endTime}</span>

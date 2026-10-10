@@ -1,14 +1,151 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { MapPin, Navigation, BusFront } from "lucide-react";
+import locations from "../../data/locations.json";
+import { getBuses } from "../../lib/store";
 import "../../styles/DriverSetup.css";
+
+const normalizeLocation = (value = "") =>
+  String(value).trim().toLowerCase().replace(/\s+/g, " ");
+
+const getLocationSuggestions = (query) => {
+  const normalizedQuery = normalizeLocation(query);
+
+  if (!normalizedQuery) return [];
+
+  return locations
+    .filter((location) =>
+      [
+        location.name,
+        location.district,
+        location.state,
+      ].some((value) =>
+        normalizeLocation(value).startsWith(normalizedQuery)
+      )
+    )
+    .slice(0, 8);
+};
+
+const getMinutes = (time) => {
+  if (!time || !/^\d{2}:\d{2}/.test(String(time))) return null;
+
+  const [hours, minutes] = String(time).slice(0, 5).split(":").map(Number);
+
+  if (hours > 23 || minutes > 59) return null;
+
+  return hours * 60 + minutes;
+};
+
+
+const findBusMatches = (buses, departure, destination, shiftStart, shiftEnd) => {
+  const from = normalizeLocation(departure);
+  const to = normalizeLocation(destination);
+  const shiftStartMinutes = getMinutes(shiftStart);
+  const shiftEndMinutes = getMinutes(shiftEnd);
+
+  if (
+    !from ||
+    !to ||
+    from === to ||
+    shiftStartMinutes === null ||
+    shiftEndMinutes === null
+  ) {
+    return [];
+  }
+
+  const shiftEndAdjusted =
+    shiftEndMinutes < shiftStartMinutes
+      ? shiftEndMinutes + 1440
+      : shiftEndMinutes;
+
+  return buses.flatMap((bus) => {
+    const routeStops = (bus.stops || bus.routeStops || [])
+      .slice()
+      .sort((a, b) => Number(a.stopOrder) - Number(b.stopOrder));
+
+    // First, try matching a bus with an actual ordered route.
+    if (routeStops.length > 0) {
+      const departureIndex = routeStops.findIndex(
+        (stop) => normalizeLocation(stop.name) === from
+      );
+
+      const destinationIndex = routeStops.findIndex(
+        (stop) => normalizeLocation(stop.name) === to
+      );
+
+      if (
+        departureIndex < 0 ||
+        destinationIndex <= departureIndex
+      ) {
+        return [];
+      }
+
+      const departureStop = routeStops[departureIndex];
+      const destinationStop = routeStops[destinationIndex];
+
+      const busStart = getMinutes(
+        departureStop.departureTime || departureStop.arrivalTime
+      );
+
+      const busEnd = getMinutes(
+        destinationStop.arrivalTime || destinationStop.departureTime
+      );
+
+      // Show a route candidate, but don't claim its schedule is verified.
+      if (busStart === null || busEnd === null) {
+        return [{
+          ...bus,
+          matchedDeparture: departureStop.name,
+          matchedDestination: destinationStop.name,
+          scheduleVerified: false,
+        }];
+      }
+
+      const busEndAdjusted =
+        busEnd < busStart ? busEnd + 1440 : busEnd;
+
+      if (
+        busStart < shiftStartMinutes ||
+        busEndAdjusted > shiftEndAdjusted
+      ) {
+        return [];
+      }
+
+      return [{
+        ...bus,
+        matchedDeparture: departureStop.name,
+        matchedDestination: destinationStop.name,
+        matchedDepartureTime:
+          departureStop.departureTime || departureStop.arrivalTime,
+        matchedArrivalTime:
+          destinationStop.arrivalTime || destinationStop.departureTime,
+        scheduleVerified: true,
+      }];
+    }
+
+    // Fallback: match a direct route using the bus's existing source/destination.
+    const busSource = normalizeLocation(bus.source);
+    const busDestination = normalizeLocation(bus.destination);
+
+    if (busSource === from && busDestination === to) {
+      return [{
+        ...bus,
+        matchedDeparture: bus.source,
+        matchedDestination: bus.destination,
+        scheduleVerified: false,
+      }];
+    }
+
+    return [];
+  });
+};
+
 
 const DriverSetup = () => {
   const navigate = useNavigate();
   
   // 1. Global Language State (Reads from localStorage, persists across app)
-  const [isHindi, setIsHindi] = useState(() => {
-    return localStorage.getItem("bussinn_lang") === "hi";
-  });
+ const [isHindi, setIsHindi] = useState(false);
 
   const toggleLanguage = () => {
     const newLangState = !isHindi;
@@ -19,10 +156,81 @@ const DriverSetup = () => {
   // Form State
   const [departurePoint, setDeparturePoint] = useState("");
   const [destinationPoint, setDestinationPoint] = useState("");
-  const [stops, setStops] = useState([""]); 
+  const [stops, setStops] = useState([]);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [error, setError] = useState("");
+  const [activeLocationField, setActiveLocationField] = useState(null);
+const [buses, setBuses] = useState([]);
+const [selectedBusId, setSelectedBusId] = useState(null);
+const [busLoading, setBusLoading] = useState(false);
+const [busLoadError, setBusLoadError] = useState("");
+
+useEffect(() => {
+  let cancelled = false;
+
+  const loadBuses = async () => {
+    setBusLoading(true);
+    setBusLoadError("");
+
+    try {
+      const data = await getBuses();
+      if (!cancelled) setBuses(data);
+    } catch (err) {
+      console.error("Unable to load buses:", err);
+      if (!cancelled) {
+        setBusLoadError("Unable to load buses. Please try again.");
+      }
+    } finally {
+      if (!cancelled) setBusLoading(false);
+    }
+  };
+
+  loadBuses();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+const departureSuggestions = useMemo(
+  () =>
+    activeLocationField === "departure"
+      ? getLocationSuggestions(departurePoint)
+      : [],
+  [activeLocationField, departurePoint]
+);
+
+const destinationSuggestions = useMemo(
+  () =>
+    activeLocationField === "destination"
+      ? getLocationSuggestions(destinationPoint)
+      : [],
+  [activeLocationField, destinationPoint]
+);
+
+const matchedBuses = useMemo(
+  () =>
+    findBusMatches(
+      buses,
+      departurePoint,
+      destinationPoint,
+      startTime,
+      endTime
+    ),
+  [buses, departurePoint, destinationPoint, startTime, endTime]
+);
+
+const selectLocation = (field, location) => {
+  if (field === "departure") {
+    setDeparturePoint(location.name);
+  } else {
+    setDestinationPoint(location.name);
+  }
+
+  setActiveLocationField(null);
+  setError("");
+};
 
   // Translation Dictionary
   const content = {
@@ -89,16 +297,15 @@ const DriverSetup = () => {
       return;
     }
 
-    // Validation: Check if any added stop is empty
-    const hasEmptyStops = stops.some(stop => !stop.trim());
-    if (hasEmptyStops && stops.length > 0) {
-      setError(t.errorMsg);
-      return;
-    }
     
     setError("");
     
     // Save configuration data for the dashboard
+    const matchedBus = matchedBuses.find((bus) => bus.id === selectedBusId);
+    console.log("Selected bus ID:", selectedBusId);
+console.log("Available matching bus IDs:", matchedBuses.map((bus) => bus.id));
+console.log("Matched bus:", matchedBus);
+
     const driverRouteData = {
       driverName: localStorage.getItem("bussinn_signup_name") || "Driver",
       departure: departurePoint,
@@ -106,7 +313,25 @@ const DriverSetup = () => {
       stops: stops.filter(s => s.trim() !== ""),
       startTime: startTime,
       endTime: endTime,
-      routeCode: "RTE-" + Math.floor(10 + Math.random() * 90) + "A"
+      routeCode: "RTE-" + Math.floor(10 + Math.random() * 90) + "A",
+      selectedBus: matchedBus
+        ? {
+            id: matchedBus.id,
+            name:
+              matchedBus.name ||
+              matchedBus.bus_name ||
+              matchedBus.bus_number ||
+              "Bus",
+            source: matchedBus.source || matchedBus.matchedDeparture,
+            destination:
+              matchedBus.destination || matchedBus.matchedDestination,
+            stops: matchedBus.stops || matchedBus.routeStops || [],
+            departureTime: matchedBus.departure_time || null,
+            arrivalTime: matchedBus.arrival_time || null,
+            scheduleVerified: matchedBus.scheduleVerified === true,
+          }
+        : null,
+
     };
 
     localStorage.setItem("driver_route_config", JSON.stringify(driverRouteData));
@@ -156,22 +381,63 @@ const DriverSetup = () => {
 
           <form className="setup-form" onSubmit={(e) => e.preventDefault()}>
             
-            {/* Departure Point */}
-            <div className="form-group">
-              <label className="form-label">{t.departureLabel}</label>
-              <div className="input-box">
-                <svg className="input-icon" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="5" stroke="#ff9800" strokeWidth="3" fill="none" />
-                </svg>
-                <input 
-                  type="text" 
-                  placeholder={t.departurePlaceholder}
-                  value={departurePoint}
-                  onChange={(e) => { setDeparturePoint(e.target.value); setError(""); }}
-                />
-              </div>
-            </div>
+           {/* Departure Point */}
+<div className="form-group">
+  <label className="form-label">{t.departureLabel}</label>
 
+  <div className="input-box">
+    <svg className="input-icon" viewBox="0 0 24 24">
+      <circle
+        cx="12"
+        cy="12"
+        r="5"
+        stroke="#ff9800"
+        strokeWidth="3"
+        fill="none"
+      />
+    </svg>
+
+    <input
+      type="text"
+      placeholder={t.departurePlaceholder}
+      value={departurePoint}
+      onFocus={() => setActiveLocationField("departure")}
+      onChange={(e) => {
+        setDeparturePoint(e.target.value);
+        setActiveLocationField("departure");
+        setError("");
+      }}
+    />
+  </div>
+
+  {activeLocationField === "departure" && departurePoint.trim() && (
+    <ul className="driver-location-suggestions">
+      {departureSuggestions.length > 0 ? (
+        departureSuggestions.map((location) => (
+          <li key={location.name}>
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectLocation("departure", location)}
+            >
+              <MapPin size={16} />
+              <span>
+                <strong>{location.name}</strong>
+                <small>
+                  {location.district}, {location.state}
+                </small>
+              </span>
+            </button>
+          </li>
+        ))
+      ) : (
+        <li className="driver-no-suggestions">
+          No matching locations found.
+        </li>
+      )}
+    </ul>
+  )}
+</div>
             {/* Dynamic Stops Section */}
             <div className="form-group stops-section">
               <div className="stops-header">
@@ -212,21 +478,60 @@ const DriverSetup = () => {
               </button>
             </div>
 
-            {/* Destination Point */}
-            <div className="form-group">
-              <label className="form-label">{t.destinationLabel}</label>
-              <div className="input-box">
-                <svg className="input-icon" viewBox="0 0 24 24" fill="#d32f2f">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
-                <input 
-                  type="text" 
-                  placeholder={t.destinationPlaceholder}
-                  value={destinationPoint}
-                  onChange={(e) => { setDestinationPoint(e.target.value); setError(""); }}
-                />
-              </div>
-            </div>
+           {/* Destination Point */}
+<div className="form-group">
+  <label className="form-label">{t.destinationLabel}</label>
+
+  <div className="input-box">
+    <svg
+      className="input-icon"
+      viewBox="0 0 24 24"
+      fill="#d32f2f"
+    >
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+    </svg>
+
+    <input
+      type="text"
+      placeholder={t.destinationPlaceholder}
+      value={destinationPoint}
+      onFocus={() => setActiveLocationField("destination")}
+      onChange={(e) => {
+        setDestinationPoint(e.target.value);
+        setActiveLocationField("destination");
+        setError("");
+      }}
+    />
+  </div>
+
+  {activeLocationField === "destination" && destinationPoint.trim() && (
+    <ul className="driver-location-suggestions">
+      {destinationSuggestions.length > 0 ? (
+        destinationSuggestions.map((location) => (
+          <li key={location.name}>
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectLocation("destination", location)}
+            >
+              <MapPin size={16} />
+              <span>
+                <strong>{location.name}</strong>
+                <small>
+                  {location.district}, {location.state}
+                </small>
+              </span>
+            </button>
+          </li>
+        ))
+      ) : (
+        <li className="driver-no-suggestions">
+          No matching locations found.
+        </li>
+      )}
+    </ul>
+  )}
+</div>
 
             <div className="time-group">
               {/* Start Time */}
@@ -261,6 +566,78 @@ const DriverSetup = () => {
                 </div>
               </div>
             </div>
+            {departurePoint.trim() &&
+  destinationPoint.trim() &&
+  startTime &&
+  endTime && (
+    <section className="driver-bus-matches" aria-live="polite">
+      <h2>Matching Buses</h2>
+
+      {busLoading && <p>Loading buses...</p>}
+
+      {busLoadError && (
+        <p className="setup-error">{busLoadError}</p>
+      )}
+
+      {!busLoading &&
+        !busLoadError &&
+        matchedBuses.length === 0 && (
+          <p>
+            No matching buses found. Check the route, shift time, and
+            available bus schedules.
+          </p>
+        )}
+
+      {matchedBuses.map((bus) => (
+        <article
+  className={`driver-match-card ${
+    selectedBusId === bus.id ? "selected" : ""
+  }`}
+  key={bus.id}
+  onClick={() => setSelectedBusId(bus.id)}
+  role="button"
+  tabIndex={0}
+  onKeyDown={(event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setSelectedBusId(bus.id);
+    }
+  }}
+  aria-pressed={selectedBusId === bus.id}
+>
+          <div className="driver-match-title">
+            <BusFront size={22} />
+
+            <div>
+              <strong>
+                {bus.name || bus.bus_number || "Bus"}
+              </strong>
+              <small>
+                {bus.operator || "Bus operator not listed"}
+              </small>
+            </div>
+          </div>
+
+          <p>
+            {bus.matchedDeparture} → {bus.matchedDestination}
+          </p>
+
+          {bus.scheduleVerified ? (
+            <p>
+              {bus.matchedDepartureTime} – {bus.matchedArrivalTime}
+            </p>
+          ) : (
+            <p className="driver-schedule-warning">
+              Route matches, but schedule times could not be verified.
+            </p>
+          )}
+          {selectedBusId === bus.id && (
+  <p className="selected-bus-label">Selected bus</p>
+)}
+        </article>
+      ))}
+    </section>
+  )}
 
             {error && <p className="setup-error">{error}</p>}
 
@@ -285,7 +662,7 @@ const DriverSetup = () => {
 
       </div>
     </div>
-  );
+    );
 };
 
 export default DriverSetup;
