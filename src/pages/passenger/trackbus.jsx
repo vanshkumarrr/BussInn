@@ -1,22 +1,180 @@
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearch } from "@tanstack/react-router";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Route as RouteIcon,
+} from "lucide-react";
 import * as maplibregl from "maplibre-gl";
 import { setWorkerUrl } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "../../styles/TrackBus.css"; // <- change to your real CSS file path/name
+
+import PassengerBottomNav from "../../components/PassengerBottomNav";
 import { supabase } from "../../lib/supabase";
 
 setWorkerUrl(workerUrl);
 
-const DEMO_ID = 1;
-const BLUE = "#4285F4";
+const DEMO_BUS_ID = "demo-bus";
+const DEMO_ROW_ID = 1; // same id the driver page writes to in demo_live_tracking
+const STALE_AFTER_MS = 30000;
 
-const ROUTE = [
+const BUS_MARKER_IMAGE =
+  "https://i.pinimg.com/1200x/ff/03/23/ff0323b987a2a4c75d944828ec112de7.jpg";
+const ORDINARY_BUS_IMAGE =
+  "https://www.onlineupsrtc.co.in/assets/icons/Ordinary.png";
+const AC_BUS_IMAGE =
+  "https://www.onlineupsrtc.co.in/assets/icons/bus_ac_janrath_2x2.png";
+
+const DEMO_ROUTE = [
   { id: "start", label: "S", name: "Stop S", coordinates: [77.521577, 28.478776] },
-  { id: "a", label: "A", name: "Stop A", coordinates: [77.522070, 28.478140] },
+  { id: "a", label: "A", name: "Stop A", coordinates: [77.52207, 28.47814] },
   { id: "b", label: "B", name: "Stop B", coordinates: [77.521175, 28.477565] },
   { id: "c", label: "C", name: "Stop C", coordinates: [77.520681, 28.478282] },
 ];
+
+const normalize = (value = "") =>
+  String(value).trim().toUpperCase().replace(/\s+/g, " ");
+
+const getBusImage = (bus) => {
+  const type = String(
+    bus?.bus_type || bus?.bus_category || bus?.category || ""
+  ).toLowerCase();
+
+  return type.includes("ac") &&
+    !type.includes("non ac") &&
+    !type.includes("non-ac")
+    ? AC_BUS_IMAGE
+    : ORDINARY_BUS_IMAGE;
+};
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
+function distanceBetween(a, b) {
+  const lat1 = toRadians(a[1]);
+  const lat2 = toRadians(b[1]);
+  const deltaLat = lat2 - lat1;
+  const deltaLng = toRadians(b[0] - a[0]);
+  const value =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+
+  return (
+    6371000 *
+    2 *
+    Math.atan2(Math.sqrt(value), Math.sqrt(Math.max(0, 1 - value)))
+  );
+}
+
+function formatDistance(meters) {
+  if (!Number.isFinite(meters)) return "--";
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+function formatTime(time) {
+  if (!time) return "--";
+  const [hours, minutes] = String(time).split(":");
+  const hour = Number(hours);
+  if (!Number.isFinite(hour) || !minutes) return String(time);
+  return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+function timeToMinutes(time) {
+  if (!time) return null;
+  const [hours, minutes] = String(time).split(":");
+  const h = Number(hours);
+  const m = Number(minutes);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+// Accepts rows from demo_live_tracking and from live_locations.
+function normalizeLive(row) {
+  if (!row) return null;
+
+  const latitude = Number(row.latitude ?? row.lat);
+  const longitude = Number(row.longitude ?? row.lng ?? row.lon);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  const heading = Number(row.heading);
+  const speed = row.speed == null ? null : Number(row.speed);
+
+  return {
+    latitude,
+    longitude,
+    heading: Number.isFinite(heading) ? heading : 0,
+    speed: Number.isFinite(speed) ? speed : null,
+    isStarted: row.is_started ?? true,
+    updatedAt: row.updated_at ?? null,
+    trail: Array.isArray(row.trail) ? row.trail : [],
+  };
+}
+
+// Returns [lng, lat] for a schedule stop, or null if it can't be found.
+async function findStopCoordinates(stop) {
+  const rawLat = stop.latitude ?? stop.lat;
+  const rawLng = stop.longitude ?? stop.lng ?? stop.lon;
+
+  if (
+    rawLat != null &&
+    rawLng != null &&
+    Number.isFinite(Number(rawLat)) &&
+    Number.isFinite(Number(rawLng))
+  ) {
+    return [Number(rawLng), Number(rawLat)];
+  }
+
+  const name = String(stop.station_name || "").trim();
+  if (!name) return null;
+
+  const cacheKey = `bussinn-stop:${name.toUpperCase()}`;
+
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {
+    /* storage unavailable */
+  }
+
+  const queries = [`${name} bus stand`, `${name} bus station`, name];
+
+  for (const query of queries) {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=${encodeURIComponent(
+          query
+        )}`
+      );
+
+      if (!response.ok) continue;
+
+      const results = await response.json();
+
+      if (results?.length) {
+        const coords = [Number(results[0].lon), Number(results[0].lat)];
+
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(coords));
+        } catch {
+          /* ignore */
+        }
+
+        return coords;
+      }
+    } catch (err) {
+      console.warn("Stop lookup failed:", err);
+    }
+  }
+
+  return null;
+}
 
 function createStopElement(label, color) {
   const element = document.createElement("div");
@@ -41,83 +199,151 @@ function createStopElement(label, color) {
 function createBusElement() {
   const element = document.createElement("div");
   Object.assign(element.style, {
-    width: "48px",
-    height: "48px",
+    width: "60px",
+    height: "60px",
     position: "relative",
-    display: "grid",
-    placeItems: "center",
-    overflow: "visible",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   });
 
   element.innerHTML = `
-    <div style="position:absolute;inset:0;border-radius:50%;background:rgba(66,133,244,.10)"></div>
-    <div data-direction-cone style="position:absolute;inset:0;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 90ms linear">
-      <div style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;border-bottom:34px solid rgba(66,133,244,.30)"></div>
+    <div class="track-map-bus-pulse"></div>
+    <div class="track-map-bus-marker">
+      <img class="track-map-bus-image" src="${BUS_MARKER_IMAGE}" alt="Bus" />
     </div>
-    <div style="position:relative;z-index:2;width:15px;height:15px;border-radius:50%;background:#4285F4;border:3px solid white;box-shadow:0 1px 8px rgba(66,133,244,.55);box-sizing:border-box"></div>
   `;
+
+  const image = element.querySelector("img");
+  image.onerror = () => {
+    image.src = ORDINARY_BUS_IMAGE;
+  };
 
   return element;
 }
 
-function toRadians(degrees) {
-  return (degrees * Math.PI) / 180;
-}
+export default function TrackBus() {
+  const search = useSearch({ strict: false });
 
-function getBearing(from, to) {
-  const lat1 = toRadians(from[1]);
-  const lat2 = toRadians(to[1]);
-  const deltaLng = toRadians(to[0] - from[0]);
-  const y = Math.sin(deltaLng) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) -
-    Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
+  const busId = String(search?.busId || DEMO_BUS_ID);
+  const from = search?.from || "";
+  const to = search?.to || "";
+  const isDemo = busId === DEMO_BUS_ID;
 
-function distanceBetween(a, b) {
-  const lat1 = toRadians(a[1]);
-  const lat2 = toRadians(b[1]);
-  const deltaLat = lat2 - lat1;
-  const deltaLng = toRadians(b[0] - a[0]);
-  const value =
-    Math.sin(deltaLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
-
-  return 6371000 * 2 * Math.atan2(
-    Math.sqrt(value),
-    Math.sqrt(Math.max(0, 1 - value))
-  );
-}
-
-export default function TrackRunningPage() {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const watchIdRef = useRef(null);
-  const trailRef = useRef([]);
-  const lastGpsRef = useRef(null);
-  const headingRef = useRef(0);
-  const trackingRef = useRef(false);
-  const mountedRef = useRef(true);
-  const compassRef = useRef(false);
+  const busMarkerRef = useRef(null);
+  const followRef = useRef(true);
+  const firstFixRef = useRef(true);
+  const originFocusedRef = useRef(false);
 
   const [mapReady, setMapReady] = useState(false);
-  const [tracking, setTracking] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [error, setError] = useState("");
   const [mapError, setMapError] = useState("");
+  const [live, setLive] = useState(null);
+  const [follow, setFollow] = useState(true);
+  const [now, setNow] = useState(Date.now());
+  const [busInfo, setBusInfo] = useState(null);
+  const [busLoading, setBusLoading] = useState(!isDemo);
+  const [busNotFound, setBusNotFound] = useState(false);
+  const [originCoords, setOriginCoords] = useState(null);
+  const [originFailed, setOriginFailed] = useState(false);
 
+  followRef.current = follow;
+
+  // Whole timetable, in order. No From/To slicing.
+  const stops = useMemo(() => {
+    if (isDemo) return DEMO_ROUTE;
+
+    return [...(busInfo?.bus_schedule || [])].sort(
+      (a, b) => Number(a.stop_order) - Number(b.stop_order)
+    );
+  }, [isDemo, busInfo]);
+
+  // Tick so "last updated" and the stale check stay current.
   useEffect(() => {
-    mountedRef.current = true;
-    if (!mapContainer.current || mapRef.current) return;
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Bus details + full schedule.
+  useEffect(() => {
+    if (isDemo) {
+      setBusInfo(null);
+      setBusLoading(false);
+      setBusNotFound(false);
+      return;
+    }
+
+    let mounted = true;
+
+    async function loadBus() {
+      setBusLoading(true);
+      setBusNotFound(false);
+
+      const { data, error } = await supabase
+        .from("buses")
+        .select(`*, bus_schedule (*)`)
+        .eq("id", busId)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (error || !data) {
+        console.error("Unable to load bus:", error);
+        setBusInfo(null);
+        setBusNotFound(true);
+      } else {
+        setBusInfo(data);
+      }
+
+      setBusLoading(false);
+    }
+
+    loadBus();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isDemo, busId]);
+
+  // Starting bus stand = the very first stop of the timetable.
+  useEffect(() => {
+    originFocusedRef.current = false;
+    setOriginFailed(false);
+
+    if (isDemo) {
+      setOriginCoords(DEMO_ROUTE[0].coordinates);
+      return;
+    }
+
+    setOriginCoords(null);
+
+    const firstStop = stops[0];
+    if (!firstStop) return;
+
+    let cancelled = false;
+
+    findStopCoordinates(firstStop).then((coords) => {
+      if (cancelled) return;
+      if (coords) setOriginCoords(coords);
+      else setOriginFailed(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemo, stops]);
+
+  // Map setup.
+  useEffect(() => {
+    if (!mapContainer.current) return;
 
     let disposed = false;
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: "https://tiles.openfreemap.org/styles/liberty",
-      center: ROUTE[0].coordinates,
+      center: DEMO_ROUTE[0].coordinates,
       zoom: 16,
       attributionControl: true,
     });
@@ -128,66 +354,28 @@ export default function TrackRunningPage() {
     map.on("load", () => {
       if (disposed) return;
 
-      map.addSource("demo-route", {
+      // Path the bus has already travelled.
+      map.addSource("trail", {
         type: "geojson",
         data: {
           type: "Feature",
           properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: ROUTE.map((p) => p.coordinates),
-          },
+          geometry: { type: "LineString", coordinates: [] },
         },
       });
 
       map.addLayer({
-        id: "demo-route-outline",
+        id: "trail-line",
         type: "line",
-        source: "demo-route",
+        source: "trail",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#fff", "line-width": 8 },
+        paint: { "line-color": "#0757d5", "line-width": 5, "line-opacity": 0.85 },
       });
 
-      map.addLayer({
-        id: "demo-route-line",
-        type: "line",
-        source: "demo-route",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": BLUE, "line-width": 4 },
+      // Stop the map from re-centering while the passenger is exploring.
+      map.on("dragstart", () => {
+        if (followRef.current) setFollow(false);
       });
-
-      ROUTE.forEach((point, index) => {
-        new maplibregl.Marker({
-          element: createStopElement(
-            point.label,
-            index === 0 ? "#f59e0b" : "#dc2626"
-          ),
-        })
-          .setLngLat(point.coordinates)
-          .setPopup(new maplibregl.Popup({ offset: 18 }).setText(point.name))
-          .addTo(map);
-      });
-
-      markerRef.current = new maplibregl.Marker({
-        element: createBusElement(),
-        anchor: "center",
-      })
-        .setLngLat(ROUTE[0].coordinates)
-        .addTo(map);
-
-      const bounds = new maplibregl.LngLatBounds();
-      ROUTE.forEach((p) => bounds.extend(p.coordinates));
-      map.fitBounds(bounds, { padding: 45, maxZoom: 17 });
-
-      // Mobile: let the page scroll instead of dragging the map.
-      if (window.matchMedia("(max-width: 850px)").matches) {
-        map.dragPan.disable();
-        map.touchZoomRotate.disable();
-        map.scrollZoom.disable();
-        mapContainer.current.style.touchAction = "pan-y";
-        const canvas = map.getCanvas();
-        canvas.style.touchAction = "pan-y";
-      }
 
       setMapReady(true);
       setMapError("");
@@ -205,561 +393,528 @@ export default function TrackRunningPage() {
 
     return () => {
       disposed = true;
-      mountedRef.current = false;
-      trackingRef.current = false;
-
-      window.removeEventListener("deviceorientation", handleOrientation, true);
-      window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
-
-      if (watchIdRef.current !== null) {
-        navigator.geolocation?.clearWatch(watchIdRef.current);
-      }
-
-      watchIdRef.current = null;
       map.remove();
       mapRef.current = null;
-      markerRef.current = null;
+      busMarkerRef.current = null;
+      setMapReady(false);
     };
   }, []);
 
-  function rotatePointer(heading) {
-    if (!Number.isFinite(heading)) return;
+  // Planned route + stop markers (demo only: real stops have no coordinates yet).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !isDemo) return;
 
-    headingRef.current = ((heading % 360) + 360) % 360;
-    const cone = markerRef.current
-      ?.getElement()
-      ?.querySelector("[data-direction-cone]");
+    const markers = [];
 
-    if (cone) cone.style.transform = `rotate(${headingRef.current}deg)`;
-  }
-
-  function handleOrientation(event) {
-    let heading = null;
-
-    if (Number.isFinite(event.webkitCompassHeading)) {
-      heading = event.webkitCompassHeading;
-    } else if (event.absolute && Number.isFinite(event.alpha)) {
-      heading = (360 - event.alpha + 360) % 360;
-    }
-
-    if (heading === null || !Number.isFinite(heading)) return;
-
-    rotatePointer(heading);
-
-    if (mountedRef.current) {
-      setLocation((current) =>
-        current ? { ...current, heading: headingRef.current } : current
-      );
-    }
-  }
-
-  async function enableCompass() {
-    try {
-      if (typeof DeviceOrientationEvent === "undefined") return;
-
-      if (typeof DeviceOrientationEvent.requestPermission === "function") {
-        const result = await DeviceOrientationEvent.requestPermission();
-        if (result !== "granted") return;
-      }
-
-      window.addEventListener("deviceorientation", handleOrientation, true);
-      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
-      compassRef.current = true;
-    } catch (e) {
-      console.warn("Compass permission unavailable:", e);
-    }
-  }
-
-  async function publishPosition(position) {
-    const { latitude, longitude, accuracy, speed } = position.coords;
-    const coords = [longitude, latitude];
-    const last = trailRef.current.at(-1);
-
-    if (
-      !last ||
-      Math.abs(last[0] - longitude) > 0.000005 ||
-      Math.abs(last[1] - latitude) > 0.000005
-    ) {
-      trailRef.current = [...trailRef.current, coords].slice(-500);
-    }
-
-    const { error: saveError } = await supabase
-      .from("demo_live_tracking")
-      .upsert(
-        {
-          id: DEMO_ID,
-          is_started: true,
-          latitude,
-          longitude,
-          speed: Number.isFinite(speed) && speed >= 0 ? speed : null,
-          heading: headingRef.current,
-          trail: trailRef.current,
-          updated_at: new Date().toISOString(),
+    if (!map.getSource("planned-route")) {
+      map.addSource("planned-route", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: DEMO_ROUTE.map((p) => p.coordinates),
+          },
         },
-        { onConflict: "id" }
+      });
+
+      map.addLayer(
+        {
+          id: "planned-route-outline",
+          type: "line",
+          source: "planned-route",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#fff", "line-width": 8 },
+        },
+        "trail-line"
       );
 
-    if (!mountedRef.current) return;
-
-    if (saveError) {
-      console.error("Supabase location update failed:", saveError);
-      setError("GPS works, but Supabase update failed. Check table columns and permissions.");
-    } else {
-      setError("");
+      map.addLayer(
+        {
+          id: "planned-route-line",
+          type: "line",
+          source: "planned-route",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#9db8e8", "line-width": 4 },
+        },
+        "trail-line"
+      );
     }
 
-    setLocation({
-      latitude,
-      longitude,
-      accuracy: Math.round(accuracy),
-      speed,
-      heading: headingRef.current,
+    DEMO_ROUTE.forEach((point, index) => {
+      const marker = new maplibregl.Marker({
+        element: createStopElement(
+          point.label,
+          index === 0 ? "#f59e0b" : "#dc2626"
+        ),
+      })
+        .setLngLat(point.coordinates)
+        .setPopup(new maplibregl.Popup({ offset: 18 }).setText(point.name))
+        .addTo(map);
+
+      markers.push(marker);
     });
-  }
 
-  function handlePosition(position) {
-    if (!trackingRef.current) return;
+    const bounds = new maplibregl.LngLatBounds();
+    DEMO_ROUTE.forEach((p) => bounds.extend(p.coordinates));
+    map.fitBounds(bounds, { padding: 45, maxZoom: 17, duration: 0 });
 
-    const { latitude, longitude, heading, speed } = position.coords;
-    const coords = [longitude, latitude];
-    const previous = lastGpsRef.current;
-
-    if (!compassRef.current) {
-      if (Number.isFinite(heading) && heading >= 0 && (speed == null || speed > 0.5)) {
-        rotatePointer(heading);
-      } else if (previous && distanceBetween(previous, coords) >= 2) {
-        rotatePointer(getBearing(previous, coords));
-      }
-    }
-
-    lastGpsRef.current = coords;
-    markerRef.current?.setLngLat(coords);
-
-    mapRef.current?.easeTo({ center: coords, duration: 350 });
-    void publishPosition(position);
-  }
-
-  function permissionError(gpsError) {
-    const messages = {
-      1: "Location access is blocked for this website. Tap the site icon beside the address bar → Site settings → Location → Allow. Then reload this page and press Start Tracking.",
-      2: "Your location is unavailable. Turn on your phone's Location/GPS setting and try again.",
-      3: "GPS request timed out. Try again outdoors with Location enabled.",
+    return () => {
+      markers.forEach((marker) => marker.remove());
     };
+  }, [mapReady, isDemo]);
 
-    setError(
-      messages[gpsError.code] ||
-      gpsError.message ||
-      "Could not get your location."
-    );
-    trackingRef.current = false;
-    setTracking(false);
-  }
+  // Live position: initial fetch + realtime subscription.
+  useEffect(() => {
+    let mounted = true;
+    firstFixRef.current = true;
+    setLive(null);
 
-  async function startTracking() {
-    setError("");
+    const table = isDemo ? "demo_live_tracking" : "live_locations";
+    const column = isDemo ? "id" : "bus_id";
+    const value = isDemo ? DEMO_ROW_ID : busId;
 
-    if (!mapReady) {
-      setError("Please wait for the map to load.");
-      return;
-    }
+    async function loadLatest() {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq(column, value)
+        .maybeSingle();
 
-    if (!window.isSecureContext) {
-      setError("Location requires HTTPS. Use your HTTPS website or localhost.");
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      setError("This browser does not support location access.");
-      return;
-    }
-
-    if (trackingRef.current || watchIdRef.current !== null) return;
-
-    // Check browser permission state, but still call getCurrentPosition
-    // directly so the browser can prompt when permission is not decided.
-    try {
-      if (navigator.permissions?.query) {
-        const permission = await navigator.permissions.query({
-          name: "geolocation",
-        });
-
-        if (permission.state === "denied") {
-          setError(
-            "Location is already blocked for this website, so the browser will not show a popup. Open the browser site settings, change Location to Allow, reload the page, and press Start Tracking again."
-          );
-          return;
-        }
+      if (error) {
+        console.warn("Live location error:", error);
+        return;
       }
-    } catch (e) {
-      // Some browsers do not support the geolocation Permissions query.
-      console.info("Permission status query is unavailable:", e);
+
+      if (mounted) setLive(normalizeLive(data));
     }
 
-    setError("Waiting for location permission…");
+    loadLatest();
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        if (!mountedRef.current || trackingRef.current) return;
-
-        trackingRef.current = true;
-        setTracking(true);
-        setError("");
-
-        // GPS is requested first. Compass permission is independent.
-        void enableCompass();
-
-        handlePosition(position);
-
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          handlePosition,
-          permissionError,
-          { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
-        );
-
-        const { error: startError } = await supabase
-          .from("demo_live_tracking")
-          .upsert(
-            {
-              id: DEMO_ID,
-              is_started: true,
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              speed: Number.isFinite(position.coords.speed) ? position.coords.speed : null,
-              heading: headingRef.current,
-              trail: trailRef.current,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "id" }
-          );
-
-        if (startError && mountedRef.current) {
-          console.error(startError);
-          setError("GPS started, but Supabase could not save the tracking status.");
+    const channel = supabase
+      .channel(`trackbus-${table}-${busId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table,
+          filter: `${column}=eq.${value}`,
+        },
+        (payload) => {
+          if (!mounted || payload.eventType === "DELETE") return;
+          const next = normalizeLive(payload.new);
+          if (next) setLive(next);
         }
-      },
-      permissionError,
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
-    );
-  }
+      )
+      .subscribe();
 
-  async function stopTracking() {
-    trackingRef.current = false;
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [isDemo, busId]);
 
-    window.removeEventListener("deviceorientation", handleOrientation, true);
-    window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
-    compassRef.current = false;
+  // Bus icon: live position if available, otherwise the starting bus stand.
+  useEffect(() => {
+    const map = mapRef.current;
 
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
+    if (!map || !mapReady) return;
+
+    const position = live ? [live.longitude, live.latitude] : originCoords;
+
+    if (!position) return;
+
+    if (!busMarkerRef.current) {
+      busMarkerRef.current = new maplibregl.Marker({
+        element: createBusElement(),
+        anchor: "center",
+      })
+        .setLngLat(position)
+        .addTo(map);
+    } else {
+      busMarkerRef.current.setLngLat(position);
     }
 
-    setTracking(false);
+    if (live) {
+      const trailSource = map.getSource("trail");
 
-    const { error: stopError } = await supabase
-      .from("demo_live_tracking")
-      .update({ is_started: false, updated_at: new Date().toISOString() })
-      .eq("id", DEMO_ID);
+      if (trailSource) {
+        trailSource.setData({
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates: live.trail },
+        });
+      }
 
-    if (stopError) {
-      console.error(stopError);
-      setError("Tracking stopped locally, but Supabase status could not update.");
+      if (firstFixRef.current) {
+        firstFixRef.current = false;
+        map.flyTo({ center: position, zoom: 17, duration: 600 });
+      } else if (followRef.current) {
+        map.easeTo({ center: position, duration: 600 });
+      }
+    } else if (!isDemo && !originFocusedRef.current) {
+      originFocusedRef.current = true;
+      map.jumpTo({ center: position, zoom: 16 });
+    }
+  }, [live, originCoords, mapReady, isDemo]);
+
+  const ageMs = live?.updatedAt ? now - new Date(live.updatedAt).getTime() : null;
+  const isFresh = ageMs !== null && ageMs < STALE_AFTER_MS;
+  const isLive = Boolean(live && live.isStarted && isFresh);
+
+  const destinationStop = isDemo
+    ? DEMO_ROUTE.find((stop) => normalize(stop.name) === normalize(to)) ||
+      DEMO_ROUTE[DEMO_ROUTE.length - 1]
+    : null;
+
+  const distanceToDestination =
+    live && destinationStop
+      ? distanceBetween(
+          [live.longitude, live.latitude],
+          destinationStop.coordinates
+        )
+      : null;
+
+  const speedKmh =
+    live?.speed != null && live.speed >= 0 ? Math.round(live.speed * 3.6) : null;
+
+  // Which stop the bus is at.
+  let currentIndex = 0;
+
+  if (isLive && stops.length) {
+    if (isDemo) {
+      let best = Infinity;
+      stops.forEach((stop, index) => {
+        const d = distanceBetween(
+          [live.longitude, live.latitude],
+          stop.coordinates
+        );
+        if (d < best) {
+          best = d;
+          currentIndex = index;
+        }
+      });
+    } else {
+      const current = new Date(now);
+      const nowMinutes = current.getHours() * 60 + current.getMinutes();
+
+      stops.forEach((stop, index) => {
+        const minutes = timeToMinutes(stop.departure_time || stop.arrival_time);
+        if (minutes !== null && minutes <= nowMinutes) currentIndex = index;
+      });
     }
   }
 
-  function centerOnLocation() {
-    const coords = location
-      ? [location.longitude, location.latitude]
-      : ROUTE[0].coordinates;
+  const getStopName = (stop) => stop?.name || stop?.station_name || "--";
+  const getStopTime = (stop) => stop?.arrival_time || stop?.departure_time;
 
-    mapRef.current?.flyTo({ center: coords, zoom: 17, duration: 450 });
+  const currentStop = stops[currentIndex];
+  const nextStop = stops[currentIndex + 1];
+
+  const progress =
+    stops.length > 1 ? Math.round((currentIndex / (stops.length - 1)) * 100) : 0;
+
+  const statusText = !live
+    ? "Scheduled"
+    : isLive
+    ? "Live"
+    : live.isStarted
+    ? "Signal lost"
+    : "Trip not started";
+
+  let currentMessage = "";
+
+  if (!live) {
+    currentMessage = originFailed
+      ? "Could not find this bus stand on the map."
+      : isDemo
+      ? "Waiting for the driver to start tracking."
+      : "Showing the bus at its starting bus stand. Live location appears when the bus starts sharing.";
+  } else if (!isLive) {
+    currentMessage = "Showing the last known position.";
+  } else if (distanceToDestination !== null) {
+    currentMessage = `${formatDistance(distanceToDestination)} to ${
+      destinationStop.name
+    }`;
+  } else {
+    currentMessage = "Live location is active.";
+  }
+
+  const busName = isDemo
+    ? "BussInn Demo Bus"
+    : busInfo?.name || busInfo?.bus_name || "UPSRTC Bus";
+
+  const busImage = isDemo ? ORDINARY_BUS_IMAGE : getBusImage(busInfo);
+
+  function recenter() {
+    setFollow(true);
+    if (live && mapRef.current) {
+      mapRef.current.flyTo({
+        center: [live.longitude, live.latitude],
+        zoom: 17,
+        duration: 450,
+      });
+    }
   }
 
   return (
-    <main style={styles.page}>
-      <header style={styles.header}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 850 }}>
-            BussInn <span style={{ color: BLUE }}>Driver</span>
-          </div>
-          <div style={{ marginTop: 5, color: "#68778e", fontSize: 13 }}>
-            Stop S · Stop A · Stop B · Stop C
-          </div>
-        </div>
-
-        <div
-          style={{
-            ...styles.status,
-            background: tracking ? "#eaf8ef" : "#fff4df",
-            color: tracking ? "#15803d" : "#a16207",
-          }}
+    <div className="track-page">
+      <header className="track-header">
+        <button
+          type="button"
+          className="track-back-button"
+          onClick={() => window.history.back()}
+          aria-label="Back"
         >
-          {tracking ? "● GPS tracking active" : "● Tracking stopped"}
+          <ArrowLeft size={20} />
+        </button>
+
+        <div className="track-header-title">
+          <span>Track bus</span>
+          <strong>
+            {from || "Boarding"} to {to || "Destination"}
+          </strong>
         </div>
       </header>
 
-      <section className="track-running-layout" style={styles.layout}>
-        <div style={styles.mapBox}>
-          <div ref={mapContainer} style={styles.map} />
+      <div className="track-map">
+        <div ref={mapContainer} style={{ position: "absolute", inset: 0 }} />
 
-          {!mapReady && !mapError && (
-            <div style={styles.overlay}>Loading map…</div>
-          )}
+        {!mapReady && !mapError && (
+          <div className="track-map-label">Loading map…</div>
+        )}
 
-          {mapError && (
-            <div style={{ ...styles.overlay, color: "#b91c1c" }}>
-              {mapError}
+        {mapError && <div className="track-map-label">{mapError}</div>}
+
+        {mapReady && live && !follow && (
+          <button
+            type="button"
+            onClick={recenter}
+            style={{
+              position: "absolute",
+              zIndex: 12,
+              right: 12,
+              bottom: 30,
+              padding: "9px 13px",
+              border: "none",
+              borderRadius: 10,
+              background: "#fff",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              boxShadow: "0 3px 10px rgba(0,0,0,.12)",
+            }}
+          >
+            Follow bus
+          </button>
+        )}
+      </div>
+
+      {busLoading ? (
+        <div className="track-loading">
+          <div className="track-loading-spinner" />
+          <p>Loading bus timetable…</p>
+        </div>
+      ) : busNotFound ? (
+        <div className="track-error">
+          <div className="track-error-icon">
+            <img
+              className="track-error-bus-image"
+              src={ORDINARY_BUS_IMAGE}
+              alt="Bus"
+            />
+          </div>
+          <h2>Bus not found</h2>
+          <p>We could not load this bus. It may be inactive or removed.</p>
+          <button
+            type="button"
+            className="track-error-button"
+            onClick={() => window.history.back()}
+          >
+            <ArrowLeft size={18} />
+            Go back
+          </button>
+        </div>
+      ) : (
+        <section className="track-sheet">
+          <div className="track-bus-summary">
+            <div className="track-bus-icon">
+              <img className="track-bus-image" src={busImage} alt="Bus" />
+            </div>
+
+            <div className="track-bus-summary-content">
+              <h1>{busName}</h1>
+              <div className="track-bus-meta">
+                <span>{isDemo ? "BussInn" : busInfo?.operator || "UPSRTC"}</span>
+                <span className="track-meta-dot">•</span>
+                <span>{statusText}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="track-current-card">
+            <div className="track-current-card-top">
+              <div>
+                <span className="track-label">Current stop</span>
+                <h2>{getStopName(currentStop)}</h2>
+              </div>
+
+              <div className="track-current-status">
+                <span className="track-status-dot" />
+                {isLive ? "LIVE" : "SCHEDULED"}
+              </div>
+            </div>
+
+            {getStopTime(currentStop) && (
+              <div className="track-current-time">
+                <Clock size={12} />
+                {formatTime(getStopTime(currentStop))}
+              </div>
+            )}
+
+            <div className="track-current-message">{currentMessage}</div>
+          </div>
+
+          {nextStop && (
+            <div className="track-next-card">
+              <div className="track-next-icon">
+                <MapPin size={18} />
+              </div>
+
+              <div className="track-next-content">
+                <span className="track-label">Next stop</span>
+                <h3>{getStopName(nextStop)}</h3>
+
+                {getStopTime(nextStop) && (
+                  <div className="track-next-time">
+                    <Clock size={11} />
+                    {formatTime(getStopTime(nextStop))}
+                  </div>
+                )}
+              </div>
+
+              <div className="track-next-arrow">
+                <ChevronRight size={16} />
+              </div>
             </div>
           )}
 
-          <button onClick={centerOnLocation} style={styles.centerButton}>
-            Center map
-          </button>
-        </div>
-
-        <aside style={styles.panel}>
-          <div style={{ color: BLUE, fontSize: 11, fontWeight: 850 }}>
-            DRIVER CONTROLS
-          </div>
-
-          <h2 style={{ margin: "8px 0 6px", fontSize: 23 }}>
-            Live tracking
-          </h2>
-
-          <p style={styles.description}>
-            Start tracking and allow GPS access. Your location will be
-            shared with the passenger demo page.
-          </p>
-
-          <button
-            onClick={tracking ? stopTracking : startTracking}
-            disabled={!mapReady}
-            style={{
-              ...styles.primaryButton,
-              background: tracking ? "#dc2626" : BLUE,
-              opacity: mapReady ? 1 : 0.6,
-            }}
-          >
-            {!mapReady ? "Loading map…" : tracking ? "Stop Tracking" : "Start Tracking"}
-          </button>
-
-          {error && <div role="alert" style={styles.error}>{error}</div>}
-
-          <div style={styles.locationCard}>
-            <strong style={{ fontSize: 13 }}>Your GPS location</strong>
-
-            {location ? (
-              <div style={styles.locationDetails}>
-                <div>Latitude: {location.latitude.toFixed(6)}</div>
-                <div>Longitude: {location.longitude.toFixed(6)}</div>
-                <div>Accuracy: about {location.accuracy} m</div>
-                <div>
-                  Direction: {Number.isFinite(location.heading)
-                    ? `${Math.round(location.heading)}°`
-                    : "Waiting for compass"}
-                </div>
+          <div className="track-progress-section">
+            <div className="track-section-heading">
+              <div>
+                <span className="track-label">Journey progress</span>
+                <h3>
+                  Stop {Math.min(currentIndex + 1, stops.length)} of{" "}
+                  {stops.length}
+                </h3>
               </div>
-            ) : (
-              <p style={styles.description}>
-                Your location appears here when you start tracking.
-              </p>
-            )}
+              <strong>{progress}%</strong>
+            </div>
+
+            <div className="track-progress-bar">
+              <div
+                className="track-progress-fill"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
 
-          <div style={{ marginTop: 22 }}>
-            <strong style={{ fontSize: 13 }}>Route stops</strong>
+          <div className="track-route-section">
+            <div className="track-section-title">
+              <RouteIcon size={17} />
+              <h2>Route</h2>
+            </div>
 
-            {ROUTE.map((point, index) => (
-              <div key={point.id} style={styles.routeStop}>
-                <div
-                  style={{
-                    ...styles.stopBadge,
-                    background: index === 0 ? "#fff4df" : "#fff0f0",
-                    color: index === 0 ? "#a16207" : "#dc2626",
-                  }}
-                >
-                  {point.label}
-                </div>
+            <div className="track-timeline">
+              {stops.map((stop, index) => {
+                const name = getStopName(stop);
+                const time = getStopTime(stop);
+                const isCurrent = index === currentIndex;
+                const isPassed = index < currentIndex;
 
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 750 }}>{point.name}</div>
-                  <div style={{ color: "#8995a8", fontSize: 11 }}>
-                    {index === 0 ? "Starting point" : "Route stop"}
+                const status = isCurrent
+                  ? "Bus is here"
+                  : normalize(name) === normalize(from)
+                  ? "Your boarding point"
+                  : normalize(name) === normalize(to)
+                  ? "Your drop point"
+                  : index === 0
+                  ? "Starting point"
+                  : index === stops.length - 1
+                  ? "Final stop"
+                  : "Stop";
+
+                return (
+                  <div
+                    key={stop.id || index}
+                    className={`track-stop${
+                      isCurrent ? " current" : isPassed ? " passed" : ""
+                    }`}
+                  >
+                    {index < stops.length - 1 && (
+                      <div className="track-stop-line" />
+                    )}
+
+                    <div className="track-stop-dot">
+                      {isCurrent && <span />}
+                    </div>
+
+                    <div className="track-stop-content">
+                      <div className="track-stop-main">
+                        <h4>{name}</h4>
+
+                        <div className="track-stop-times">
+                          <span>{time ? formatTime(time) : "--"}</span>
+                        </div>
+                      </div>
+
+                      <div className="track-stop-status">{status}</div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
-        </aside>
-      </section>
 
-      <style>{`
-        * { box-sizing: border-box; }
+          <div className="track-info-section">
+            <div className="track-info-grid">
+              <div className="track-info-item">
+                <span>Fare</span>
+                <strong>{busInfo?.fare != null ? `₹${busInfo.fare}` : "--"}</strong>
+              </div>
 
-        html, body, #root {
-          min-height: 100%;
-          height: auto;
-          overflow-y: auto !important;
-        }
+              <div className="track-info-item">
+                <span>Bus type</span>
+                <strong>
+                  {isDemo
+                    ? "Demo"
+                    : busInfo?.bus_type ||
+                      busInfo?.bus_category ||
+                      busInfo?.category ||
+                      "Ordinary"}
+                </strong>
+              </div>
 
-        body {
-          margin: 0;
-          -webkit-overflow-scrolling: touch;
-        }
+              <div className="track-info-item">
+                <span>Operator</span>
+                <strong>{isDemo ? "BussInn" : busInfo?.operator || "UPSRTC"}</strong>
+              </div>
 
-        .track-running-layout {
-          touch-action: pan-y;
-        }
+              <div className="track-info-item">
+                <span>Speed</span>
+                <strong>{speedKmh !== null ? `${speedKmh} km/h` : "--"}</strong>
+              </div>
+            </div>
+          </div>
 
-        @media (max-width: 850px) {
-          .track-running-layout {
-            grid-template-columns: minmax(0, 1fr) !important;
-          }
-        }
-      `}</style>
-    </main>
+          <div style={{ height: 70 }} />
+        </section>
+      )}
+
+      <PassengerBottomNav />
+    </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    height: "auto",
-    overflow: "visible",
-    padding: "16px",
-    background: "#f3f6fb",
-    color: "#14213d",
-    fontFamily: "Inter, system-ui, sans-serif",
-    boxSizing: "border-box",
-  },
-  header: {
-    maxWidth: 1400,
-    margin: "0 auto 14px",
-    padding: "16px 20px",
-    background: "#fff",
-    border: "1px solid #e4eaf2",
-    borderRadius: 18,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 14,
-    flexWrap: "wrap",
-  },
-  status: {
-    padding: "8px 12px",
-    borderRadius: 30,
-    fontWeight: 750,
-    fontSize: 12,
-  },
-  layout: {
-    maxWidth: 1400,
-    margin: "0 auto",
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) 310px",
-    gap: 16,
-    alignItems: "start",
-  },
-  mapBox: {
-    position: "relative",
-    height: "280px",
-    minHeight: "240px",
-    overflow: "hidden",
-    background: "#e6edf5",
-    border: "1px solid #dce5ef",
-    borderRadius: 20,
-    touchAction: "pan-y",
-  },
-  map: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    touchAction: "pan-y",
-  },
-  overlay: {
-    position: "absolute",
-    zIndex: 3,
-    top: 12,
-    left: 12,
-    right: 12,
-    padding: 12,
-    background: "#fff",
-    borderRadius: 12,
-    boxShadow: "0 4px 18px #0001",
-    fontSize: 13,
-  },
-  centerButton: {
-    position: "absolute",
-    zIndex: 4,
-    left: 12,
-    bottom: 12,
-    padding: "10px 13px",
-    border: "1px solid #e1e7ef",
-    borderRadius: 10,
-    background: "#fff",
-    fontWeight: 750,
-    cursor: "pointer",
-  },
-  panel: {
-    padding: 20,
-    border: "1px solid #e4eaf2",
-    borderRadius: 20,
-    background: "#fff",
-    minWidth: 0,
-  },
-  description: {
-    color: "#68778e",
-    fontSize: 13,
-    lineHeight: 1.65,
-  },
-  primaryButton: {
-    width: "100%",
-    minHeight: 48,
-    marginTop: 16,
-    border: 0,
-    borderRadius: 12,
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: 850,
-    cursor: "pointer",
-  },
-  error: {
-    marginTop: 14,
-    padding: 13,
-    borderRadius: 12,
-    background: "#fff1f2",
-    color: "#b91c1c",
-    fontSize: 12,
-    lineHeight: 1.7,
-    overflowWrap: "anywhere",
-  },
-  locationCard: {
-    marginTop: 18,
-    padding: 14,
-    borderRadius: 12,
-    background: "#f4f7fc",
-  },
-  locationDetails: {
-    marginTop: 8,
-    color: "#52627a",
-    fontSize: 12,
-    lineHeight: 1.8,
-    overflowWrap: "anywhere",
-  },
-  routeStop: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 14,
-  },
-  stopBadge: {
-    width: 32,
-    height: 32,
-    flexShrink: 0,
-    display: "grid",
-    placeItems: "center",
-    borderRadius: "50%",
-    fontWeight: 850,
-    fontSize: 12,
-  },
-};
